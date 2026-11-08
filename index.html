@@ -2459,6 +2459,7 @@ function textPanel(c, x, y, z, w, h, ry = 0) {
   m.position.set(x, y, z); m.rotation.y = ry; c.root.add(m);
   bx(c, .08, y - h / 2, .08, x, (y - h / 2) / 2, z - .02, { fill: MC.metal });
   return {
+    mesh: m,
     draw(title, lines, hi = -1, hiTo = -1) {
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height);
       g.fillStyle = '#1B2027'; g.font = '600 30px Inter, sans-serif'; g.fillText(title, 30, 46);
@@ -2725,6 +2726,454 @@ const USD_LESSONS = [
         const steps = P.min * 60 * rate * (+P.envs), p = prog(steps, P);
         return [['Agent steps collected', (steps / 1e6).toFixed(2) + ' M', 'd'], ['Success rate (model)', Math.round(p * 100) + ' %', p < .5 ? 'p' : 'd'],
           ['Reward', { sparse: '+1 at target only', dense: 'Δdistance each step, +1 at target', time: 'dense − 0.001 per step' }[P.rew]], ['Trainer', 'PPO (mlagents-learn)']];
+      }
+    };
+  }
+}
+];
+
+/* ==================================================================
+   UNITY 6 FUNDAMENTALS and VR INTERACTION (XR INTERACTION TOOLKIT)
+     ugo     GameObjects, components and the transform hierarchy
+     uloop   The game loop: Update, FixedUpdate and Time.deltaTime
+     utrig   Triggers and collisions: who gets the message
+     xrig    XR Origin and interactors: pointing at things
+     xgrab   Grabbing objects: three ways to follow a hand
+     xloco   Moving in VR without feeling sick
+   Unity is left-handed with Y up (x right, y up, z forward). The plate
+   (three.js) is right-handed, so a Unity point (x, y, z) is drawn at
+   (x, y, -z) and a Unity rotation of +θ about Y is drawn as -θ. All
+   numbers shown to students are Unity numbers.
+================================================================== */
+Object.assign(REFS, {
+  unity6manual: 'Unity Technologies. (2025). <i>Unity 6 manual: GameObjects, Transforms, prefabs and the order of execution for event functions</i>. https://docs.unity3d.com/6000.0/Documentation/Manual/execution-order.html',
+  xri3: 'Unity Technologies. (2025). <i>XR Interaction Toolkit</i> (Version 3.x) [Computer software]. https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@3.4/manual/index.html',
+  argelaguet2013: 'Argelaguet, F., &amp; Andujar, C. (2013). A survey of 3D object selection techniques for virtual environments. <i>Computers &amp; Graphics, 37</i>(3), 121–136. https://doi.org/10.1016/j.cag.2012.12.003',
+  reason1975: 'Reason, J. T., &amp; Brand, J. J. (1975). <i>Motion sickness</i>. Academic Press.',
+  laviola2000: 'LaViola, J. J., Jr. (2000). A discussion of cybersickness in virtual environments. <i>ACM SIGCHI Bulletin, 32</i>(1), 47–56. https://doi.org/10.1145/333329.333344',
+  kennedy1993: 'Kennedy, R. S., Lane, N. E., Berbaum, K. S., &amp; Lilienthal, M. G. (1993). Simulator sickness questionnaire: An enhanced method for quantifying simulator sickness. <i>The International Journal of Aviation Psychology, 3</i>(3), 203–220. https://doi.org/10.1207/s15327108ijap0303_3'
+});
+
+// Unity-style axes (x red right, y green up, z blue forward = into the plate)
+function unityAxes(c, parent, len = 1, labels = true) {
+  const g = new THREE.Group(); parent.add(g);
+  c.line([V(0, 0, 0), V(len, 0, 0)], AX.x, {}, g); c.line([V(0, 0, 0), V(0, len, 0)], AX.y, {}, g); c.line([V(0, 0, 0), V(0, 0, -len)], AX.z, {}, g);
+  if (labels) { c.label('x', V(len + .12, 0, 0), '', g); c.label('y', V(0, len + .12, 0), '', g); c.label('z', V(0, 0, -len - .15), '', g); }
+  return g;
+}
+// "1.00" without a "-0.00"
+const f2 = v => (Math.abs(v) < .005 ? 0 : v).toFixed(2);
+const vec3 = (x, y, z) => '(' + f2(x) + ', ' + f2(y) + ', ' + f2(z) + ')';
+// Standard normal CDF (Abramowitz & Stegun 7.1.26 through erf)
+function normCdf(z) {
+  const t = 1 / (1 + .3275911 * Math.abs(z) / Math.SQRT2);
+  const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-z * z / 2);
+  return z >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+}
+
+const UNITY_LESSONS = [
+/* ---------------------------------------------------------------- 1 */
+{
+  id: 'ugo', phase: 'Unity 6 fundamentals', title: 'GameObjects, components and the transform hierarchy',
+  cam: [1.2, 4.6, 8.4], target: [1, .8, -.6],
+  body: [
+    'Everything in a Unity scene is a GameObject: an empty container with a name and a Transform (position, rotation, scale). What it does comes from the components you add. A Mesh Renderer draws it, a Collider gives it a shape for physics, a Rigidbody lets physics move it, and your C# scripts add behaviour. A prefab is a saved GameObject with all its components: place it many times, edit the prefab once, and every copy updates (Unity Technologies, 2025).',
+    'GameObjects form a hierarchy. The position, rotation and scale a child shows in the Inspector are local: measured from its parent. Move, turn or scale the parent and every child follows. Unity\'s frame is left-handed with Y up (x right, y up, z forward), and 1 unit is 1 metre.'
+  ],
+  predict: { q: 'A table (the parent) stands at world position (2, 0, 0), turned 90° around Y. A cup is its child with local position (1, 0.8, 0). Where is the cup in world space?', options: ['(3, 0.8, 0)', '(2, 0.8, −1)', '(2, 0.8, 1)'], answer: 1 },
+  test: 'Move, turn and scale the table, and slide the cup along it. Compare the cup\'s local position (what the Inspector shows) with its world position.',
+  controls: [
+    { id: 'px', type: 'range', label: 'Table position x (world)', min: -2, max: 3, step: .1, value: 2, fmt: v => v.toFixed(1) + ' m' },
+    { id: 'rot', type: 'range', label: 'Table rotation around Y', min: -180, max: 180, step: 15, value: 90, fmt: v => v + '°' },
+    { id: 'sc', type: 'range', label: 'Table scale', min: .5, max: 2, step: .1, value: 1, fmt: v => v.toFixed(1) + ' ×' },
+    { id: 'lx', type: 'range', label: 'Cup local position x', min: 0, max: 1.2, step: .05, value: 1, fmt: v => v.toFixed(2) + ' m' }
+  ],
+  prove: '<p>A child is placed in three steps: scale it by the parent\'s scale, turn it by the parent\'s rotation, then add the parent\'s position. Turning 90° around Y in Unity sends local +x to world −z, so (1, 0.8, 0) becomes (0, 0.8, −1), and adding (2, 0, 0) gives (2, 0.8, −1). Unity does this for you: <code>transform.position</code> is the world position, <code>transform.localPosition</code> is the one in the Inspector.</p><pre class="eq">world = parent position + R_y(θ) · (s · local)\nR_y(θ) · (x, y, z) = (x·cos θ + z·sin θ,  y,  −x·sin θ + z·cos θ)\nR_y(90°) · (1, 0.8, 0) = (0, 0.8, −1)  →  + (2, 0, 0) = (2, 0.8, −1)\n\n// C# (Unity 6)\nTransform cup = table.transform.Find("Cup");\nDebug.Log(cup.localPosition);                         // (1.0, 0.8, 0.0)\nDebug.Log(cup.position);                              // (2.0, 0.8, -1.0)\nVector3 w = table.transform.TransformPoint(cup.localPosition);  // the same point\nRigidbody rb = cup.GetComponent&lt;Rigidbody&gt;();          // find a component\nInstantiate(cupPrefab, new Vector3(0, 0.8, 0), Quaternion.identity, table.transform);</pre><p>ROS 2 uses a right-handed frame with Z up, so a Unity twin of the SO-100 must convert axes; Unity\'s ROS-TCP-Connector does this with <code>position.To&lt;FLU&gt;()</code>.</p>',
+  teacher: {
+    outcomes: ['Explain GameObjects, components and prefabs.', 'Convert a child\'s local position to world space through its parent\'s position, rotation and scale.'],
+    misconception: 'The position in the Inspector is where the object is in the world. It is the local position relative to the parent; use transform.position for world space.',
+    lab: 'In Unity 6 build a table prefab with a cup child, rotate and scale the table, and log localPosition and position; place five prefab instances, change the prefab once and check that all five update.',
+    fits: 'DigiTech2 Unit 6 · Unity Fundamentals', refs: ['unity6manual']
+  },
+  build(c) {
+    bx(c, 8.4, .04, 4, 1.2, -.02, -.8, { fill: MC.stone, fillOpacity: .3, line: COL.dim, opacity: .35 });
+    for (let i = -3; i <= 5; i++) c.line([V(i, .005, 1.2), V(i, .005, -2.8)], COL.dim, { opacity: .14 });
+    for (let j = -1; j <= 2; j++) c.line([V(-3, .005, -j), V(5.4, .005, -j)], COL.dim, { opacity: .14 });
+    unityAxes(c, c.root, 1.1);
+    c.label('world origin (0, 0, 0)', V(-.2, -.15, .55), 'm');
+    // the table: a GameObject with children; the cup is its child
+    const T = new THREE.Group(); c.root.add(T);
+    bx(c, 2.6, .08, 1.1, 0, .76, 0, { fill: MC.wood }, T);
+    [[-1.2, -.45], [1.2, -.45], [-1.2, .45], [1.2, .45]].forEach(([x, z]) => cy(c, .04, .04, .72, x, .36, z, { fill: MC.woodDark }, T, 8));
+    unityAxes(c, T, .6, false);
+    const cup = new THREE.Group(); T.add(cup);
+    cy(c, .13, .1, .26, 0, .13, 0, { fill: MC.pot }, cup, 16);
+    const local = dynLine(c, 2, COL.dig, { opacity: .95 }), world = dynLine(c, 2, COL.chalk, { opacity: .5 });
+    const lt = c.label('table', V(0, 0, 0), 'm'), lc = c.label('', V(0, 0, 0), 'd');
+    let res = null;
+    const compute = P => {
+      const th = P.rot * Math.PI / 180, s = P.sc;
+      res = { wx: P.px + s * P.lx * Math.cos(th), wy: s * .8, wz: -s * P.lx * Math.sin(th) };
+    };
+    return {
+      update(dt, t, P) {
+        compute(P);
+        T.position.set(P.px, 0, 0); T.rotation.y = -P.rot * Math.PI / 180; T.scale.setScalar(P.sc);
+        cup.position.set(P.lx, .8, 0);
+        const cw = V(res.wx, res.wy + .26 * P.sc, -res.wz);       // drawn: Unity z → plate −z
+        local.set([V(P.px, .82 * P.sc, 0), cw]); world.set([V(0, 0, 0), cw]);
+        lt.pos.set(P.px - 1.3 * P.sc * Math.cos(-P.rot * Math.PI / 180), 1.1 * P.sc, 1.3 * P.sc * Math.sin(-P.rot * Math.PI / 180)); lc.pos.copy(cw).add(V(0, .45, 0)); lc.set('cup ' + vec3(res.wx, res.wy, res.wz));
+      },
+      readouts(P) {
+        if (!res) compute(P);
+        return [['Cup localPosition (Inspector)', vec3(P.lx, .8, 0), 'd'], ['Cup position (world)', vec3(res.wx, res.wy, res.wz), 'd'],
+          ['Table position', vec3(P.px, 0, 0)], ['Table rotation · scale', P.rot + '° · ' + P.sc.toFixed(1) + ' ×']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 2 */
+{
+  id: 'uloop', phase: 'Unity 6 fundamentals', title: 'The game loop: Update, FixedUpdate and deltaTime',
+  device: [['quest3', 'Meta Quest 3']],
+  cam: [0, 4.4, 8.6], target: [0, 1, 0],
+  body: [
+    'Unity calls your scripts from a loop. Update() runs once per rendered frame, so its rate follows the frame rate: 72, 90 or 120 Hz on a Quest 3, and lower when the scene gets heavy. FixedUpdate() runs on the physics clock, 50 times a second by default, so a frame can contain no FixedUpdate, one, or several (Unity Technologies, 2025).',
+    'Anything that moves over time in Update must be multiplied by Time.deltaTime, the seconds since the last frame; otherwise speed depends on the frame rate. Forces and Rigidbody moves belong in FixedUpdate. MQTT callbacks often run on a background thread where Unity objects must not be touched, so store the new value there and apply it in Update.'
+  ],
+  predict: { q: 'A script moves a cube with transform.position += Vector3.forward * 0.05f in Update, without Time.deltaTime. The Quest 3 switches from 72 Hz to 120 Hz. What happens to the cube\'s speed?', options: ['It stays at 3.6 m/s', 'It rises from 3.6 to 6 m/s', 'It drops to about 2.2 m/s'], answer: 1 },
+  test: 'Change the frame rate and add frame-time spikes. Watch the two cubes and the ticks on the timeline: blue for Update, violet for FixedUpdate.',
+  controls: [
+    { id: 'fps', type: 'seg', label: 'Frame rate (Update)', options: [['30', '30 Hz (heavy)'], ['72', '72 Hz'], ['90', '90 Hz'], ['120', '120 Hz']], value: '72' },
+    { id: 'spike', type: 'toggle', label: 'Frame-time spikes (every 10th frame takes 3×)', value: false },
+    { id: 'dt', type: 'seg', label: 'Fixed timestep', options: [['0.02', '0.02 s (default)'], ['0.01', '0.01 s']], value: '0.02' }
+  ],
+  prove: '<p>Without deltaTime the cube moves a fixed step every frame, so its speed is step × frame rate: 0.05 × 72 = 3.6 m/s, but 0.05 × 120 = 6 m/s. With deltaTime the step is speed × seconds since the last frame; a long frame gets a long step and the speed stays at 3.6 m/s. FixedUpdate does not care about the frame rate at all: 50 calls a second, so at 120 Hz most frames have none and at 30 Hz some frames have two.</p><pre class="eq">speed without deltaTime = step · fps        0.05 m · 120 Hz = 6.0 m/s\nspeed with deltaTime    = v                  (any frame rate)\nFixedUpdate per frame   = (1 / Δt_fixed) / fps   50 / 120 = 0.42,  50 / 30 = 1.67\n\nvoid Update() {                       // once per frame\n    transform.position += Vector3.forward * speed * Time.deltaTime;   // m/s · s = m\n    if (hasNewReading) { ApplyReading(latest); hasNewReading = false; }\n}\nvoid FixedUpdate() {                  // 50 × per second (Time.fixedDeltaTime = 0.02)\n    rb.AddForce(Vector3.up * lift);\n}</pre><p>The plate runs at a quarter of real time so the steps can be seen.</p>',
+  teacher: {
+    outcomes: ['Explain when Update and FixedUpdate run and how often.', 'Make motion frame-rate independent with Time.deltaTime.'],
+    misconception: 'Update runs at a fixed rate. It follows the frame rate, which changes with headset settings and scene load.',
+    lab: 'Log Time.deltaTime for 10 s on Quest 3 at 72 Hz and 120 Hz, report mean, standard deviation and 99th percentile of frame time in Python, then fix a script that moves without deltaTime.',
+    fits: 'DigiTech2 Unit 6 · Unity Fundamentals', refs: ['unity6manual']
+  },
+  build(c) {
+    const X0 = -3.5, LEN = 7;                              // 7 m lanes, 1 plate unit = 1 m
+    [[-.9, 'without deltaTime'], [.9, '× Time.deltaTime']].forEach(([z, n]) => {
+      bx(c, LEN, .04, 1, 0, .02, z, { fill: MC.stone, fillOpacity: .45, line: COL.dim, opacity: .5 });
+      for (let i = 0; i <= 7; i++) c.line([V(X0 + i, .05, z - .5), V(X0 + i, .05, z + .5)], COL.dim, { opacity: .25 });
+      c.label(n, V(X0 + 1.4, .35, z - .75), 'm');
+    });
+    const cubeA = bx(c, .4, .4, .4, 0, .24, 0, { fill: MC.servo }), cubeB = bx(c, .4, .4, .4, 0, .24, 0, { fill: MC.servo });
+    // timeline: 0.2 s of the loop
+    const TY = 2.4, TW = 7;
+    c.line([V(X0, TY, 0), V(X0 + TW, TY, 0)], COL.chalk, { opacity: .6 });
+    c.label('0 s', V(X0, TY - .3, 0), 'm'); c.label('0.2 s', V(X0 + TW, TY - .3, 0), 'm');
+    c.label('Update', V(X0 - .7, TY + .3, 0), 'd'); c.label('FixedUpdate', V(X0 - .9, TY - .3, 0), 'm');
+    const uT = [], fT = [];
+    for (let i = 0; i < 30; i++) uT.push(bx(c, .04, .5, .04, 0, 0, 0, { fill: COL.dig, line: COL.dig, fillOpacity: .55 }));
+    for (let i = 0; i < 21; i++) fT.push(bx(c, .06, .4, .06, 0, 0, 0, { fill: MC.violet, line: MC.violet, fillOpacity: .55 }));
+    let key = '', acc = 0, k = 0, a = 0, b = 0;
+    const frameLen = (P, i) => (1 / +P.fps) * (P.spike && i % 10 === 9 ? 3 : 1);
+    const eff = P => P.spike ? +P.fps * 10 / 12 : +P.fps;
+    function layout(P) {
+      let t = 0, i = 0;
+      uT.forEach(m => m.position.set(0, -9, 0));
+      while (t <= .2 + 1e-9 && i < uT.length) { uT[i].position.set(X0 + TW * t / .2, TY + .3, 0); t += frameLen(P, i); i++; }
+      fT.forEach((m, j) => { const tt = j * +P.dt; m.position.set(tt <= .2 + 1e-9 ? X0 + TW * tt / .2 : 0, tt <= .2 + 1e-9 ? TY - .3 : -9, 0); });
+    }
+    return {
+      update(dt, t, P) {
+        const kk = P.fps + P.spike + P.dt; if (kk !== key) { key = kk; layout(P); }
+        acc += dt * .25;                                     // quarter speed
+        let fl = frameLen(P, k);
+        while (acc >= fl) { acc -= fl; a += .05; b += 3.6 * fl; k++; fl = frameLen(P, k); }
+        a %= LEN; b %= LEN;
+        cubeA.position.set(X0 + a, 0, -.9); cubeB.position.set(X0 + b, 0, .9);
+      },
+      readouts(P) {
+        const f = eff(P), sp = .05 * f;
+        return [['Update calls per second', f.toFixed(0)], ['FixedUpdate calls per second', (1 / +P.dt).toFixed(0)],
+          ['Speed without deltaTime', sp.toFixed(2) + ' m/s', Math.abs(sp - 3.6) > .05 ? 'p' : 'd'], ['Speed with deltaTime', '3.60 m/s', 'd'],
+          ['FixedUpdate per frame (mean)', (1 / +P.dt / f).toFixed(2)]];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 3 */
+{
+  id: 'utrig', phase: 'Unity 6 fundamentals', title: 'Triggers and collisions: who gets the message',
+  cam: [0.4, 3.8, 8.2], target: [0, 1.1, 0],
+  body: [
+    'A collider can block, like a wall, or be a trigger, an invisible zone (Is Trigger ticked). Solid colliders produce contact and the messages OnCollisionEnter, Stay and Exit. Triggers let objects pass and produce OnTriggerEnter, Stay and Exit. In a twin, triggers mark zones: the safety area around a robot arm, the room a user entered, a hazard the user stands next to.',
+    'Unity only sends these messages if physics is watching the pair: at least one of the two objects needs a Rigidbody. A collider without one is static, and two static colliders never notice each other, even when you move one with transform.position. A kinematic Rigidbody (moved by your script, not by forces) is the usual fix for a moving trigger or a tracked VR hand (Unity Technologies, 2024).'
+  ],
+  predict: { q: 'A tracked VR hand has a Sphere Collider but no Rigidbody. It moves into a box marked Is Trigger that has no Rigidbody either. Does OnTriggerEnter run?', options: ['Yes, the colliders overlap', 'No, neither object has a Rigidbody', 'Only if the hand moves slowly'], answer: 1 },
+  test: 'Switch the zone between trigger and solid, and give the ball no Rigidbody, a kinematic one or a dynamic one. The log shows which messages Unity sends.',
+  controls: [
+    { id: 'zone', type: 'seg', label: 'Zone collider', options: [['trig', 'Is Trigger'], ['solid', 'Solid']], value: 'trig' },
+    { id: 'rb', type: 'seg', label: 'Ball', options: [['none', 'No Rigidbody'], ['kin', 'Kinematic Rigidbody'], ['dyn', 'Dynamic Rigidbody']], value: 'none' },
+    { id: 'zrb', type: 'toggle', label: 'Zone also has a kinematic Rigidbody', value: false }
+  ],
+  prove: '<p>Trigger messages need one trigger and at least one Rigidbody of any kind. Collision messages need two solid colliders and at least one dynamic Rigidbody, because only a dynamic body is pushed back by contacts. A kinematic or static ball slides through a solid wall without a word. So the hand in the question needs a Rigidbody, set to kinematic so that tracking, not gravity, moves it.</p><pre class="eq">trigger messages    one collider Is Trigger  AND  ≥ 1 Rigidbody (kinematic is fine)\ncollision messages  both solid               AND  ≥ 1 dynamic Rigidbody\nstatic ↔ static     nothing, ever\nkinematic ↔ static or kinematic   no collision messages (they pass through)\n\npublic class SafetyZone : MonoBehaviour {      // Box Collider, Is Trigger\n    void OnTriggerEnter(Collider other) {\n        if (other.CompareTag("Hand")) mqtt.Publish("lab/arm/slow", "1");\n    }\n    void OnTriggerExit(Collider other) {\n        if (other.CompareTag("Hand")) mqtt.Publish("lab/arm/slow", "0");\n    }\n}</pre><p>Kinematic–kinematic contacts can be switched on with Contact Pairs Mode in the Physics settings.</p>',
+  teacher: {
+    outcomes: ['Predict which messages a pair of colliders produces.', 'Use trigger zones with kinematic Rigidbodies for tracked hands and twin zones.'],
+    misconception: 'Overlapping colliders always fire OnTriggerEnter. Without a Rigidbody on at least one of them, physics never checks the pair.',
+    lab: 'Put a trigger zone around the SO-100\'s reach in the Unity twin, give the XR hand a kinematic Rigidbody, log OnTriggerEnter and OnTriggerExit times to CSV and compute dwell time in Python.',
+    fits: 'DigiTech2 Unit 6 · Unity Fundamentals', refs: ['unity6physics', 'unity6manual']
+  },
+  build(c) {
+    bx(c, 8, .06, 2.2, 0, -.03, 0, { fill: MC.stone, line: COL.dim, fillOpacity: .5 });
+    const zoneT = bx(c, 1.6, 2, 1.6, .8, 1, 0, { fill: COL.dig, line: COL.dig, fillOpacity: .12 });
+    const zoneS = bx(c, 1.6, 2, 1.6, .8, 1, 0, { fill: MC.wall, role: 'actuator' });
+    const zl = c.label('', V(.8, 2.35, 0), 'm');
+    const ball = sph(c, .25, 0, 0, 0, { fill: MC.servo });
+    // a small console: the last three messages Unity sent
+    c.label('Console', V(-3.6, 2.9, 0), 'm');
+    const cons = [0, 1, 2].map(i => c.label('', V(-3.6, 2.55 - i * .32, 0), 'd'));
+    const ZL = .8 - .8 - .25, ZR = .8 + .8 + .25;          // ball centre range that overlaps the zone
+    let x = -3.6, vx = 1.2, inside = false, wait = 0, log = [], key = '', drawn = '';
+    const rules = P => {
+      const hasRB = P.rb !== 'none' || P.zrb;
+      if (P.zone === 'trig') return { msg: hasRB ? 'trigger' : 'none', blocks: false, why: hasRB ? 'trigger + a Rigidbody' : 'no Rigidbody on either object' };
+      const dyn = P.rb === 'dyn';
+      return { msg: dyn ? 'collision' : 'none', blocks: dyn, why: dyn ? 'two solids + a dynamic Rigidbody' : (hasRB ? 'kinematic bodies ignore contacts' : 'no Rigidbody on either object') };
+    };
+    const push = s => { log.push(s); if (log.length > 3) log.shift(); };
+    return {
+      update(dt, t, P) {
+        const kk = P.zone + P.rb + P.zrb; if (kk !== key) { key = kk; x = -3.6; vx = 1.2; inside = false; wait = 0; log = []; }
+        const R = rules(P);
+        zoneT.visible = P.zone === 'trig'; zoneS.visible = P.zone === 'solid';
+        zl.set(P.zone === 'trig' ? 'trigger zone' + (P.zrb ? ' + kinematic RB' : '') : 'solid box' + (P.zrb ? ' + kinematic RB' : ''));
+        if (wait > 0) { wait -= dt; if (wait <= 0) { x = -3.6; vx = 1.2; inside = false; } }
+        else {
+          let nx = x + vx * dt;
+          if (R.blocks && vx > 0 && nx >= ZL) { nx = ZL; vx = -.6; push('t=' + t.toFixed(1) + '  OnCollisionEnter(Ball)'); }
+          const now = nx > ZL && nx < ZR;
+          if (now !== inside && R.msg === 'trigger') push('t=' + t.toFixed(1) + '  OnTrigger' + (now ? 'Enter' : 'Exit') + '(Ball)');
+          if (now !== inside && R.msg === 'none' && now) push('t=' + t.toFixed(1) + '  (overlap, no message)');
+          inside = now; x = nx;
+          if (x > 3.6 || x < -3.7) wait = 1;
+        }
+        ball.position.set(x, 1, 0);
+        const s = log.join('|') + R.why;
+        if (s !== drawn) { drawn = s; const last = log.slice(-3); cons.forEach((L, i) => L.set(i < last.length ? last[i] : (i === 0 && !last.length ? '(nothing yet)' : ''))); }
+      },
+      readouts(P) {
+        const R = rules(P);
+        return [['Messages', R.msg === 'trigger' ? 'OnTriggerEnter / Exit' : R.msg === 'collision' ? 'OnCollisionEnter' : 'none', R.msg === 'none' ? 'p' : 'd'],
+          ['Ball passes through', R.blocks ? 'no, it bounces' : 'yes'], ['Why', R.why]];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 4 */
+{
+  id: 'xrig', phase: 'VR interaction (XRI)', title: 'XR Origin and interactors: pointing at things',
+  device: [['quest3', 'Meta Quest 3'], ['touch', 'Quest Touch Plus']],
+  cam: [0.6, 3.4, 8.2], target: [.2, 1.3, 0],
+  body: [
+    'In Unity\'s XR Interaction Toolkit (XRI 3.x) the player is an XR Origin: a rig whose Camera follows the headset and whose controller objects follow the hands, all measured in a tracking space that starts at the floor. Interaction has two roles. Interactors sit on the hands: a Near-Far Interactor grabs what is close and points a ray at what is far, and a Poke Interactor presses buttons with a fingertip. Interactables sit on objects: XR Grab Interactable, XR Simple Interactable, or UI on a world-space canvas (Unity Technologies, 2025).',
+    'A ray makes far objects reachable, but hands and tracking shake, so the ray wobbles by a fraction of a degree. What decides whether a target is easy to hit is therefore not its size in centimetres but its angular size: how many degrees it covers from the hand (Argelaguet &amp; Andujar, 2013).'
+  ],
+  predict: { q: 'The ray wobbles by about 0.5° (one standard deviation). Which square button is easier to hit?', options: ['A 4 cm button 0.8 m away', 'A 12 cm button 4 m away', 'Both are equally easy, because the 12 cm button is three times larger'], answer: 0 },
+  test: 'Change the distance, the button size and the wobble. The ray turns blue on a hit and orange on a miss; the cone shows the wobble.',
+  controls: [
+    { id: 'd', type: 'range', label: 'Distance to the button', min: .4, max: 8, step: .1, value: 4, fmt: v => v.toFixed(1) + ' m' },
+    { id: 'w', type: 'range', label: 'Button width', min: 2, max: 40, step: 1, value: 12, fmt: v => v + ' cm' },
+    { id: 'sd', type: 'range', label: 'Ray wobble (SD)', min: .1, max: 2, step: .05, value: .5, fmt: v => v.toFixed(2) + '°' }
+  ],
+  prove: '<p>The 4 cm button at 0.8 m covers 2.86°, the 12 cm button at 4 m only 1.72°, so the small near button is the bigger target for the ray. With a 0.5° wobble the chance to land inside is about 99% versus 84%. Size world-space UI in degrees: a button that works at 1 m must grow in proportion when it is placed further away. Close UI can use the Poke Interactor instead.</p><pre class="eq">angular size  θ = 2 · atan(w / 2d)\n4 cm at 0.8 m → 2.86°      12 cm at 4 m → 1.72°\nhit chance (square, wobble σ per axis) = (2·Φ(θ / 2σ) − 1)²\nσ = 0.5°  →  99 %  vs  84 %\n\n// XR Origin (XR Rig) from the XRI Starter Assets sample\n// Left / Right Controller: Near-Far Interactor (grab near, ray far) + Poke Interactor\n// Fan button: Collider + XR Simple Interactable\nvar button = GetComponent&lt;XRSimpleInteractable&gt;();\nbutton.selectEntered.AddListener(_ =&gt; mqtt.Publish("home/cmd/fan", "on"));</pre><p>Angles on the plate are drawn four times larger, and the wobble is a teaching value; measure yours by logging where the ray hits a fixed target.</p>',
+  teacher: {
+    outcomes: ['Name the parts of an XR Origin and the interactor–interactable pair.', 'Size ray targets by angular size and estimate the hit chance.'],
+    misconception: 'Big in the scene means easy to hit. Only the angle a target covers from the hand matters for a ray.',
+    lab: 'Place buttons of three sizes at 1, 2 and 4 m in a Unity 6 scene with the XRI Starter Assets, log hits and misses for 20 presses each, and plot hit rate against angular size.',
+    fits: 'DigiTech2 Unit 7 · Advanced XR & Evaluation', refs: ['xri3', 'argelaguet2013']
+  },
+  build(c) {
+    const VIS = 4;                                          // angles drawn 4× larger
+    bx(c, 9, .04, 2, .3, -.02, 0, { fill: MC.stone, fillOpacity: .4, line: COL.dim, opacity: .4 });
+    const pp = person(c, -3.7, .2);
+    const H = V(-3.3, 1.3, 0);                             // the hand / controller
+    bx(c, .16, .1, .1, H.x, H.y, H.z, { fill: MC.white, role: 'controller' });
+    const wallG = new THREE.Group(); c.root.add(wallG);
+    bx(c, .06, 2.4, 1.6, 0, 1.3, 0, { fill: MC.white, line: COL.dim }, wallG);
+    const btn = bx(c, .08, 1, 1, 0, 0, 0, { fill: MC.screen, role: 'actuator' }); wallG.add(btn);
+    const ray = dynLine(c, 2, COL.dig, { opacity: .95 }), coneA = dynLine(c, 2, COL.dim, { opacity: .45 }), coneB = dynLine(c, 2, COL.dim, { opacity: .45 });
+    const tip = c.glow(COL.dig, .5, V(0, 0, 0));
+    const dl = c.label('', V(0, 0, 0), 'm');
+    let e1 = 0, e2 = 0, res = null; const rnd = mulberry32(5);
+    const g = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
+    const compute = P => {
+      const th = 2 * Math.atan(P.w / 100 / (2 * P.d)) * 180 / Math.PI, p1 = 2 * normCdf(th / 2 / P.sd) - 1;
+      res = { th, hit: p1 * p1 };
+    };
+    return {
+      update(dt, t, P) {
+        compute(P);
+        const Dp = .9 + 6 * Math.log(P.d / .4) / Math.log(8 / .4) * .9;   // drawn distance (log scale)
+        const wx = H.x + Dp; wallG.position.set(wx, 0, 0);
+        const half = Math.min(1.1, Dp * Math.tan(Math.min(70, res.th / 2 * VIS) * Math.PI / 180));   // drawn half-size of the button
+        btn.scale.set(1, 2 * half, 2 * half); btn.position.set(-.04, H.y, 0);
+        // wobble: a slow random walk, SD = P.sd per axis
+        e1 += (g() * P.sd - e1) * Math.min(1, dt * 3); e2 += (g() * P.sd - e2) * Math.min(1, dt * 3);
+        const a1 = e1 * VIS * Math.PI / 180, a2 = e2 * VIS * Math.PI / 180;
+        const hit = Math.abs(e1) < res.th / 2 && Math.abs(e2) < res.th / 2;
+        const end = V(wx - .04, H.y + Dp * Math.tan(a1), -Dp * Math.tan(a2));
+        ray.set([H, end]); ray.line.material.color.setHex(hit ? COL.dig : COL.phys);
+        tip.position.copy(end); tip.material.color.setHex(hit ? COL.dig : COL.phys);
+        const sa = 2 * P.sd * VIS * Math.PI / 180;
+        coneA.set([H, V(wx, H.y + Dp * Math.tan(sa), 0)]); coneB.set([H, V(wx, H.y - Dp * Math.tan(sa), 0)]);
+        dl.pos.set(wx, 2.75, 0); dl.set(P.d.toFixed(1) + ' m · ' + P.w + ' cm · ' + res.th.toFixed(2) + '°');
+        void pp;
+      },
+      readouts(P) {
+        if (!res) compute(P);
+        return [['Angular size of the button', res.th.toFixed(2) + '°', 'd'], ['Ray wobble (SD)', P.sd.toFixed(2) + '°'],
+          ['Hit chance', Math.round(res.hit * 100) + ' %', res.hit < .9 ? 'p' : 'd'], ['Same angle at 1 m', (P.w / P.d).toFixed(1) + ' cm']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 5 */
+{
+  id: 'xgrab', phase: 'VR interaction (XRI)', title: 'Grabbing objects: three ways to follow a hand',
+  device: [['touch', 'Quest Touch Plus']],
+  cam: [0.4, 3.4, 7.4], target: [0, 1.2, 0],
+  body: [
+    'An XR Grab Interactable needs a Collider and a Rigidbody. When a hand selects it, the object follows the hand\'s attach point with one of three movement types. Instantaneous sets the Transform every frame: no lag, but it passes through other colliders. Kinematic moves a kinematic Rigidbody in the physics step: in sync with physics, but it still passes through walls. Velocity Tracking sets the Rigidbody\'s velocity so physics moves it: it collides, but trails a little behind the hand (Unity Technologies, 2025).',
+    'The choice shows up in a twin as a cup that sinks into the table, a valve handle that lags, or a tool that cannot be thrown. Throw On Detach passes the hand\'s velocity to the object when you let go.'
+  ],
+  predict: { q: 'You grab a mug and push your hand down through a table. With Velocity Tracking, what does the mug do?', options: ['It sinks into the table with your hand', 'It stops on the table top while your hand goes on', 'It jumps back to where you picked it up'], answer: 1 },
+  test: 'Switch movement types and the hand speed. The hand (violet) dips through the table and moves sideways; watch where the mug goes and how far it trails.',
+  controls: [
+    { id: 'mt', type: 'seg', label: 'Movement type', options: [['inst', 'Instantaneous'], ['kin', 'Kinematic'], ['vel', 'Velocity Tracking']], value: 'vel' },
+    { id: 'v', type: 'range', label: 'Hand speed', min: .2, max: 3, step: .1, value: 1, fmt: v => v.toFixed(1) + ' m/s' }
+  ],
+  prove: '<p>Velocity Tracking asks physics to move the mug at the speed that would reach the hand, so the solver stops it at the table and the hand goes on alone. Instantaneous and Kinematic place the mug where the hand is, so it ends up inside the table. The price of physics is a small delay: the mug catches up one physics step later, which at 1 m/s is a gap of about 2 cm.</p><pre class="eq">movement type       moves                                  lag (model)       passes through walls\nInstantaneous       Transform, every frame                 0                 yes\nKinematic           kinematic Rigidbody, physics step      ≈ Δt/2 = 10 ms    yes\nVelocity Tracking   Rigidbody velocity, physics step       ≈ Δt = 20 ms      no, it collides\ngap = v_hand · lag:   1 m/s · 20 ms = 2 cm\n\nvar grab = mug.AddComponent&lt;XRGrabInteractable&gt;();   // adds a Rigidbody if missing\ngrab.movementType = XRBaseInteractable.MovementType.VelocityTracking;\ngrab.throwOnDetach = true;\ngrab.attachTransform = handle;                         // where the hand holds the mug</pre><p>The lags are a teaching model at the default 0.02 s physics step; interpolation and the XRI smoothing settings change them.</p>',
+  teacher: {
+    outcomes: ['Choose a movement type for grabbed objects in a twin.', 'Explain the trade-off between lag and correct contacts.'],
+    misconception: 'A grabbed object is glued to the hand. Only Instantaneous follows exactly; the physics-based types trade a little lag for correct contacts.',
+    lab: 'Make three mugs, one per movement type, push each into a table and throw each across the room; record what happens and choose a type for your twin\'s valves, tools and handles.',
+    fits: 'DigiTech2 Unit 7 · Advanced XR & Evaluation', refs: ['xri3', 'unity6physics']
+  },
+  build(c) {
+    const TOP = 1.0;                                        // table top height (plate units, 1 = 0.5 m)
+    bx(c, 3.2, .1, 1.8, 0, TOP - .05, 0, { fill: MC.wood });
+    [[-1.4, -.7], [1.4, -.7], [-1.4, .7], [1.4, .7]].forEach(([x, z]) => cy(c, .05, .05, TOP - .1, x, (TOP - .1) / 2, z, { fill: MC.woodDark }, undefined, 8));
+    const hand = c.glow(MC.violet, .9, V(0, 0, 0));
+    const handBox = bx(c, .2, .12, .12, 0, 0, 0, { fill: MC.white, role: 'controller' });
+    const mug = new THREE.Group(); c.root.add(mug);
+    cy(c, .2, .17, .36, 0, 0, 0, { fill: MC.pot }, mug, 16);
+    const link = dynLine(c, 2, COL.dim, { opacity: .6 });
+    const st = c.label('', V(0, 2.9, 0), 'd');
+    const hist = []; let time = 0, my = 2, mx = -1;
+    // the hand path: a loop that dips 0.5 units through the table top, then moves sideways
+    const path = u => { const a = u * 2 * Math.PI; return V(-1.1 * Math.cos(a), TOP + .55 + .85 * Math.sin(a), 0); };
+    const lagOf = P => P.mt === 'inst' ? 0 : P.mt === 'kin' ? .01 : .02;
+    return {
+      update(dt, t, P) {
+        const slow = .12;                                    // the plate runs at 12 % of real time
+        time += dt * slow;
+        const per = (2 * Math.PI * 1.1 * .5) / P.v;           // loop length in metres / speed
+        const h = path((time / per) % 1);
+        hist.push({ t: time, p: h.clone() }); while (hist.length > 400) hist.shift();
+        const want = time - lagOf(P);
+        let tgt = h; for (let i = hist.length - 1; i >= 0; i--) if (hist[i].t <= want) { tgt = hist[i].p; break; }
+        let x = tgt.x, y = tgt.y; const bottom = TOP + .18;
+        let blocked = false;
+        if (P.mt === 'vel' && y < bottom && Math.abs(x) < 1.6) { y = bottom; blocked = true; }
+        mx = x; my = y;
+        mug.position.set(mx, my, 0);
+        hand.position.copy(h); handBox.position.copy(h);
+        link.set([h, V(mx, my, 0)]);
+        const sinks = P.mt !== 'vel' && my < bottom && Math.abs(mx) < 1.6;
+        st.set(blocked ? 'mug stopped by the table, hand continues' : sinks ? 'mug inside the table' : 'following the hand');
+        st.el.style.color = sinks ? 'var(--phys)' : '';
+      },
+      readouts(P) {
+        const lag = lagOf(P);
+        return [['Lag behind the hand (model)', (lag * 1000).toFixed(0) + ' ms'], ['Gap at this hand speed', (P.v * lag * 100).toFixed(1) + ' cm'],
+          ['Passes through the table', P.mt === 'vel' ? 'no' : 'yes', P.mt === 'vel' ? 'd' : 'p'], ['Throwable (Throw On Detach)', 'yes, all three']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 6 */
+{
+  id: 'xloco', phase: 'VR interaction (XRI)', title: 'Moving in VR without feeling sick',
+  device: [['quest3', 'Meta Quest 3']],
+  cam: [0, 6.4, 6.8], target: [0, .4, -.4],
+  body: [
+    'In VR your eyes can see motion that your inner ear does not feel. This mismatch between vision and the vestibular sense is the leading explanation for cybersickness: nausea, eye strain and dizziness (Reason &amp; Brand, 1975; LaViola, 2000). The strongest triggers are speed changes and turning that the user did not make with their own body.',
+    'XRI puts locomotion providers on the XR Origin: teleportation (point, then jump, with no motion shown), continuous move (walking with the thumbstick) and turning, either in snap steps such as 45° or smoothly. A tunnelling vignette narrows the view while moving. Real walking inside the play area is the most natural of all (Unity Technologies, 2025).'
+  ],
+  predict: { q: 'For a first-time user, which setting usually causes the least discomfort?', options: ['Thumbstick move at 3 m/s with smooth turning', 'Teleport with snap turning', 'Thumbstick move at 1 m/s with smooth turning'], answer: 1 },
+  test: 'Switch between teleport and continuous move, change the speed and the turning, and add a vignette. The cone is the user\'s view; the score is a teaching rule of thumb, not a measurement.',
+  controls: [
+    { id: 'move', type: 'seg', label: 'Locomotion', options: [['tele', 'Teleport'], ['cont', 'Continuous move']], value: 'cont' },
+    { id: 'spd', type: 'range', label: 'Move speed (continuous)', min: .5, max: 4, step: .1, value: 2, fmt: v => v.toFixed(1) + ' m/s' },
+    { id: 'turn', type: 'seg', label: 'Turning', options: [['snap', 'Snap 45°'], ['smooth', 'Smooth 60°/s']], value: 'smooth' },
+    { id: 'vig', type: 'toggle', label: 'Tunnelling vignette while moving', value: false }
+  ],
+  prove: '<p>Teleporting shows no motion at all, so the inner ear has nothing to disagree with, and a snap turn changes the view in one step instead of a spin. Continuous movement is fine for many users at low, steady speed with a vignette, but speed, acceleration and smooth turning all add conflict. Offer teleport and snap turning as the default, continuous movement as an option, and measure discomfort with the Simulator Sickness Questionnaire (SSQ) after each condition (Kennedy et al., 1993).</p><pre class="eq">seen but not felt:  speed v and its changes,  turn rate ω\nscore (teaching rule) = v / (1 m/s) + 1.5 · [smooth turning];  × 0.6 with a vignette\n  teleport + snap → 0      continuous 2 m/s + smooth → 3.5\nSSQ total = (Σ nausea + Σ oculomotor + Σ disorientation raw scores) × 3.74\n\n// XR Origin → Locomotion (XRI Starter Assets)\n//   Teleportation Provider + Teleportation Area on the floor\n//   Continuous Move Provider (Move Speed)  ·  Snap Turn Provider (Turn Amount)\n//   Tunneling Vignette Controller on the Main Camera</pre><p>The comfort score only orders the settings for discussion; people differ widely, so always measure.</p>',
+  teacher: {
+    outcomes: ['Explain cybersickness as visual–vestibular conflict.', 'Choose and configure XRI locomotion and comfort options, and plan an SSQ measurement.'],
+    misconception: 'A high frame rate removes cybersickness. It helps, but motion you see and do not feel still causes conflict.',
+    lab: 'Run six participants through the same twin with teleport + snap and with continuous + smooth turning in counterbalanced order, give the SSQ after each, and compare totals with a Wilcoxon signed-rank test in Python.',
+    fits: 'DigiTech2 Unit 7 · Advanced XR & Evaluation', refs: ['reason1975', 'laviola2000', 'kennedy1993', 'xri3']
+  },
+  build(c) {
+    bx(c, 9, .04, 5.6, 0, -.02, -.4, { fill: MC.stone, fillOpacity: .35, line: COL.dim, opacity: .4 });
+    const way = [V(-3.4, 0, 1.4), V(-1.2, 0, 1.4), V(-1.2, 0, -1.6), V(1.8, 0, -1.6), V(1.8, 0, .6), V(3.4, 0, .6)];
+    c.line(way.map(p => V(p.x, .03, p.z)), COL.dim, { dashed: true, opacity: .5 });
+    const user = new THREE.Group(); c.root.add(user);
+    c.ink(new THREE.CylinderGeometry(.22, .26, .6, 14).translate(0, .3, 0), { fill: MC.shirt }, user);
+    c.ink(new THREE.SphereGeometry(.2, 14, 10).translate(0, .78, 0), { fill: MC.skin }, user);
+    // view cone on the floor, pointing along local +x
+    const cone = dynLine(c, 4, COL.dig, { opacity: .8, parent: user });
+    const arc = dynLine(c, 24, COL.dig, { opacity: .9 });
+    const flash = c.glow(COL.dig, 1.2, V(0, -9, 0));
+    const st = c.label('', V(0, 2.2, -2.6), 'd');
+    let seg = 0, u = 0, heading = 0, target = 0, pause = 0, pos = way[0].clone(), arcT = -1, arcFrom = V(), arcTo = V();
+    const score = P => { const v = P.move === 'cont' ? P.spd : 0; return (v + (P.turn === 'smooth' ? 1.5 : 0)) * (P.vig ? .6 : 1); };
+    return {
+      update(dt, t, P) {
+        const slow = .6;
+        const a = way[seg], b = way[seg + 1], d = a.distanceTo(b);
+        target = Math.atan2(-(b.z - a.z), b.x - a.x);
+        // turning first
+        let dh = ((target - heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        if (Math.abs(dh) > .01) {
+          if (P.turn === 'smooth') { const step = Math.sign(dh) * Math.min(Math.abs(dh), 60 * Math.PI / 180 * dt * slow); heading += step; }
+          else { pause -= dt; if (pause <= 0) { heading += Math.sign(dh) * Math.min(Math.abs(dh), Math.PI / 4); pause = .45; } }
+        } else if (P.move === 'cont') {
+          u += P.spd * dt * slow / d;
+          if (u >= 1) { u = 0; seg++; }
+          pos.copy(a).lerp(b, Math.min(1, u));
+        } else {
+          if (arcT < 0) { arcT = 0; arcFrom.copy(a); arcTo.copy(b); }
+          arcT += dt * .8;
+          if (arcT >= 1) { pos.copy(b); seg++; arcT = -1; flash.position.set(b.x, .4, b.z); flash.material.opacity = 1; }
+        }
+        if (seg >= way.length - 1) { seg = 0; u = 0; pos.copy(way[0]); heading = 0; arcT = -1; }
+        flash.material.opacity = Math.max(0, (flash.material.opacity || 0) - dt * 2);
+        user.position.set(pos.x, 0, pos.z); user.rotation.y = heading;
+        const moving = P.move === 'cont' && Math.abs(dh) <= .01;
+        const half = (P.vig && moving ? 25 : 50) * Math.PI / 180, R = 1.6;
+        cone.set([V(R * Math.cos(half), .05, -R * Math.sin(half)), V(0, .05, 0), V(R * Math.cos(half), .05, R * Math.sin(half)), V(R * Math.cos(half), .05, -R * Math.sin(half))]);
+        if (P.move === 'tele' && arcT >= 0) {
+          const pts = []; for (let i = 0; i < 24; i++) { const s = i / 23; const p = arcFrom.clone().lerp(arcTo, s); p.y = .9 + Math.sin(Math.PI * s) * 1.0 - s * .9; pts.push(p); }
+          arc.set(pts); arc.line.visible = true;
+        } else arc.line.visible = false;
+        const sc = score(P);
+        st.set('comfort score ' + sc.toFixed(1) + (sc < .5 ? ' · low conflict' : sc < 2 ? ' · medium' : ' · high conflict'));
+        st.el.style.color = sc >= 2 ? 'var(--phys)' : '';
+      },
+      readouts(P) {
+        const sc = score(P);
+        return [['Motion seen but not felt', P.move === 'cont' ? P.spd.toFixed(1) + ' m/s' : 'none (jump)', P.move === 'cont' ? 'p' : 'd'],
+          ['Turning seen', P.turn === 'smooth' ? '60°/s spin' : '45° steps'], ['Comfort score (teaching rule)', sc.toFixed(1), sc >= 2 ? 'p' : 'd'],
+          ['Measure with', 'SSQ after each condition']];
       }
     };
   }
@@ -3118,7 +3567,9 @@ const TOPICS = [
   { id: 'capture', name: 'Reality capture', ids: ['lidar', 'splats', 'gsanat'] },
   { id: 'vision', name: 'Computer vision', ids: ['pixels', 'edges', 'camera', 'detect', 'stereo'] },
   { id: 'interop', name: 'OpenUSD & NVIDIA Isaac', ids: ['omni', 'usdfirst', 'usd', 'usdrobot'] },
+  { id: 'ufund', name: 'Unity 6 fundamentals', ids: ['ugo', 'uloop', 'utrig'] },
   { id: 'unity', name: 'Unity 6 physics & RL', ids: ['colliders', 'rigid', 'mlagents'] },
+  { id: 'xri', name: 'VR interaction (XRI)', ids: ['xrig', 'xgrab', 'xloco'] },
   { id: 'robotics', name: 'Robotics', ids: ['arm', 'ros2'] },
   { id: 'iot', name: 'IoT', ids: ['mqtt', 'farm', 'solar'] },
   { id: 'kit', name: 'Smart farm kit', ids: ['kitpins', 'kitadc', 'kitpump', 'kitclimate', 'kitdoor', 'kitweb'] },
@@ -3127,7 +3578,7 @@ const TOPICS = [
   { id: 'validation', name: 'Twin data & validation', ids: ['bidir', 'sync'] }
 ];
 (function orderByTopic() {
-  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS, ADAPT_LESSONS, USD_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
+  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS, ADAPT_LESSONS, USD_LESSONS, UNITY_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
   LESSONS.length = 0;
   TOPICS.forEach(t => { t.idx = []; t.ids.forEach((id, k) => { const L = byId[id]; L.topic = t; L.inTopic = k; t.idx.push(LESSONS.length); LESSONS.push(L); }); });
 })();

@@ -331,7 +331,7 @@ export function polyline(points, color = 0xE69F00, opacity = 0.9) {
 // =====================================================================================
 /** every device, in contents order; `lessons` are book lesson ids (opened as /#id) */
 export const DEVICES = [
-  { id: 'quest3', name: 'Meta Quest 3', group: 'Headsets', lessons: [['twin', 'Model, shadow, twin']],
+  { id: 'quest3', name: 'Meta Quest 3', group: 'Headsets', lessons: [['twin', 'Model, shadow, twin'], ['uloop', 'The game loop'], ['xrig', 'XR Origin and interactors'], ['xloco', 'Moving in VR without feeling sick']],
     predict: { q: 'You raise Unity\'s render scale from 1.0 to 1.4 at 90 Hz. How many more pixels must the GPU shade each second?', options: ['1.4 times as many', 'About 2 times as many', 'The same number, just sharper'], answer: 1,
       why: 'Render scale multiplies both width and height, so the pixel count grows with its square: 1.4² ≈ 1.96. Try it on the Unity render scale slider and watch the Mpx/s figure.' } },
   { id: 'varjo', name: 'Varjo XR-3 · XR-4', group: 'Headsets', lessons: [['sync', 'Validating the twin']],
@@ -340,7 +340,7 @@ export const DEVICES = [
   { id: 'ml2', name: 'Magic Leap 2', group: 'Headsets', lessons: [],
     predict: { q: 'With dimming off, you walk from a 500 lx lab to a 5,000 lx window. What happens to the hologram\'s contrast?', options: ['It stays the same', 'It drops about 10 times', 'It gets better'], answer: 1,
       why: 'See-through AR can only add light. Ten times more room light coming through the lens means roughly ten times less contrast for the same hologram, until the dimmer cuts the background.' } },
-  { id: 'touch', name: 'Touch Plus controllers', group: 'Tracking & input', lessons: [],
+  { id: 'touch', name: 'Touch Plus controllers', group: 'Tracking & input', lessons: [['xrig', 'XR Origin and interactors'], ['xgrab', 'Grabbing objects']],
     predict: { q: 'How many of the controller\'s LEDs must one headset camera see to compute its full position and orientation?', options: ['One', 'Four or more', 'All of them'], answer: 1,
       why: 'Perspective-n-point needs at least four known points (three give several possible poses). With fewer, the IMU carries on alone and drift grows with time squared.' } },
   { id: 'tracking', name: 'Lighthouse vs inside-out', group: 'Tracking & input', lessons: [['sync', 'Validating the twin'], ['bidir', 'Bidirectional twin data']],
