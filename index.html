@@ -582,7 +582,7 @@ const LESSONS = [
     { id: 'shot', type: 'toggle', label: 'shot_override.usda active', value: true },
     { id: 'base', type: 'toggle', label: 'base_scan.usda active', value: true }
   ],
-  prove: '<p>The strongest layer with an opinion wins, and values are never blended. Switch the override off, or move it below base, and the height falls back to 1.0. rotateY comes only from session.usda, so it ignores the height disagreement. Across references, payloads and variants, USD applies the same idea through its LIVRPS strength order.</p><pre class="eq">#usda 1.0\n(\n    subLayers = [\n        @session.usda@,         # strongest\n        @shot_override.usda@,\n        @base_scan.usda@        # weakest\n    ]\n)</pre>',
+  prove: '<p>The strongest layer with an opinion wins, and values are never blended. Switch the override off, or move it below base, and the height falls back to 1.0. rotateY comes only from session.usda, so it ignores the height disagreement. Across references, payloads and variants, USD applies the same idea through its LIVRPS strength order (Local, Inherits, Variants, References, Payloads, Specializes).</p><pre class="eq">#usda 1.0\n(\n    subLayers = [\n        @session.usda@,         # strongest\n        @shot_override.usda@,\n        @base_scan.usda@        # weakest\n    ]\n)</pre>',
   teacher: {
     outcomes: ['Predict a resolved attribute value from a layer stack.', 'Separate scan, asset and live data into their own layers.'],
     misconception: 'Later layers overwrite earlier ones, as in an image editor. In a USD layer stack the first listed sublayer is strongest.',
@@ -712,7 +712,7 @@ const LESSONS = [
   id: 'ros2', phase: 'Robotics', title: 'Topics and packets in ROS 2',
   cam: [0, 7.2, 8.6], target: [0, 0, 0],
   body: [
-    'ROS 2 programs are nodes that talk through named topics. A node publishes messages, and every node that subscribes gets a copy, so the camera never needs to know the planner exists. Underneath, DDS moves the bytes (Macenski et al., 2022).',
+    'ROS 2 programs are nodes that talk through named topics. A node publishes messages, and every node that subscribes gets a copy, so the camera never needs to know the planner exists. Underneath, a middleware called DDS moves the bytes across the network (Macenski et al., 2022).',
     'Each publisher and subscriber chooses a Quality of Service. Best effort sends each message once and forgets it. Reliable resends lost messages until they arrive. Over lab Wi-Fi, the /joint_states link to the Unity twin is where this choice shows.'
   ],
   predict: { q: 'The SO-100 driver publishes /joint_states at 50 Hz over Wi-Fi that loses 10% of packets. With best-effort QoS, how many joint states reach the twin each second?', options: ['50', '45', '40'], answer: 1 },
@@ -1620,7 +1620,7 @@ const XR_LESSONS = [
   device: [['quest3', 'Meta Quest 3'], ['touch', 'Touch Plus']],
   cam: [3.8, 3.2, 5.2], target: [0, 1.0, 0],
   body: [
-    'What you see and what the physics engine touches are different meshes. The visual mesh can have thousands of triangles; the collider is a simpler shape that PhysX can test quickly. Unity offers primitive colliders (box, sphere, capsule), a convex Mesh Collider (at most 255 faces) and a non-convex Mesh Collider.',
+    'What you see and what the physics engine touches are different meshes. The visual mesh can have thousands of triangles; the collider is a simpler shape that PhysX, Unity\'s physics engine, can test quickly. Unity offers primitive colliders (box, sphere, capsule), a convex Mesh Collider (at most 255 faces) and a non-convex Mesh Collider.',
     'A non-convex Mesh Collider follows every dent, but a dynamic Rigidbody cannot use it: it must be static or kinematic. Moving parts such as a gripper or a cup in the twin use convex shapes or a compound of primitives (Unity Technologies, 2024).'
   ],
   predict: { q: 'Your digital twin has a mug that the SO-100 arm must pick up and drop, so it needs a dynamic Rigidbody. A ball should still fall inside it. Which collider?', options: ['Non-convex Mesh Collider of the visual mesh', 'One convex Mesh Collider', 'A compound of primitive colliders (or a convex decomposition)'], answer: 2 },
@@ -1688,7 +1688,7 @@ const XR_LESSONS = [
   cam: [0.5, 3.0, 7.4], target: [0, 1.2, 0],
   body: [
     'A Rigidbody is moved by the physics engine, not by you. Every FixedUpdate (0.02 s by default, 50 Hz) PhysX integrates gravity and forces, moves each body and only then checks for contacts. Between two steps a fast object jumps v·Δt metres.',
-    'If that jump is longer than a thin wall, discrete collision detection never sees the overlap and the object tunnels through. Continuous collision detection (CCD) sweeps the shape along its path, at a higher cost. Use CCD for fast, small objects such as a thrown controller-held tool (Unity Technologies, 2024).'
+    'If that jump is longer than a thin wall, discrete collision detection never sees the overlap and the object tunnels through. Continuous collision detection (CCD) sweeps the shape along its path, at a higher cost. Use CCD for fast, small objects such as a tool thrown from a VR controller (Unity Technologies, 2024).'
   ],
   predict: { q: 'A ball flies at 20 m/s at a 5 cm wall. The fixed timestep is the default 0.02 s and collision detection is Discrete. What happens?', options: ['It bounces off', 'It passes straight through', 'Unity raises an error'], answer: 1 },
   test: 'Change the speed, the fixed timestep and the collision mode. The dots are the ball\'s position at each physics step.',
@@ -1697,7 +1697,7 @@ const XR_LESSONS = [
     { id: 'dt', type: 'seg', label: 'Fixed timestep Δt', options: [['0.02', '0.02 s (50 Hz)'], ['0.01', '0.01 s'], ['0.005', '0.005 s']], value: '0.02' },
     { id: 'ccd', type: 'seg', label: 'Collision detection', options: [['disc', 'Discrete'], ['ccd', 'Continuous']], value: 'disc' }
   ],
-  prove: '<p>At 20 m/s and Δt = 0.02 s the ball moves 0.40 m per step, eight times the wall\'s 5 cm thickness plus the ball radius. Some step lands it on the far side without an overlap. Halving Δt halves the jump but doubles the physics cost; CCD catches it at any speed.</p><pre class="eq">step = v · Δt\ntunnels (discrete) if  v · Δt > t_wall + 2r\nv = 20 m/s, Δt = 0.02 s → 0.40 m > 0.05 + 0.10 m\nv_safe < (t_wall + 2r) / Δt = 7.5 m/s\nvₙ₊₁ = vₙ + g·Δt,  xₙ₊₁ = xₙ + vₙ₊₁·Δt   (semi-implicit Euler)</pre><p>The ball has a 5 cm radius. Unity\'s CCD modes (Continuous, Continuous Dynamic, Continuous Speculative) differ in cost and in which pairs they sweep.</p>',
+  prove: '<p>At 20 m/s and Δt = 0.02 s the ball moves 0.40 m per step. The wall plus the ball is only 0.15 m thick (5 cm wall, 10 cm ball), so one step can carry the ball from in front of the wall to behind it without the two ever overlapping. Halving Δt halves the jump but doubles the physics cost; CCD catches it at any speed.</p><pre class="eq">step = v · Δt\ntunnels (discrete) if  v · Δt > t_wall + 2r\nv = 20 m/s, Δt = 0.02 s → 0.40 m > 0.05 + 0.10 m\nv_safe < (t_wall + 2r) / Δt = 7.5 m/s\nvₙ₊₁ = vₙ + g·Δt,  xₙ₊₁ = xₙ + vₙ₊₁·Δt   (semi-implicit Euler)</pre><p>The ball has a 5 cm radius. Unity\'s CCD modes (Continuous, Continuous Dynamic, Continuous Speculative) differ in cost and in which pairs they sweep.</p>',
   teacher: {
     outcomes: ['Relate the fixed timestep and speed to tunnelling.', 'Choose between discrete and continuous collision detection in Unity 6.'],
     misconception: 'Physics runs every rendered frame. Rigidbodies move on the fixed timestep; Update and FixedUpdate run at different rates.',
@@ -1759,7 +1759,7 @@ const XR_LESSONS = [
     'Two loops therefore share the network. Telemetry goes upstream on topics like farm/soil, commands go downstream on farm/cmd/pump, and the device answers with an acknowledgement on farm/state/pump. The twin should draw what the device reports, not what it hopes it sent.'
   ],
   predict: { q: 'You press "pump ON" in Unity. The network adds 50 ms each way and the soil sensor publishes every 2 s. How long until the twin can show the soil reacting?', options: ['About 0.1 s', 'Up to about 2 s', 'About 10 s'], answer: 1 },
-  test: 'Change the telemetry rate, the network delay and the QoS, and toggle acknowledgements. Orange packets are commands going down, blue packets are telemetry coming up.',
+  test: 'Change the telemetry rate, the network delay and the QoS, and toggle acknowledgements. Blue packets are commands going down to the kit; orange packets are telemetry and acknowledgements coming up from it.',
   controls: [
     { id: 'rate', type: 'range', label: 'Telemetry rate', min: .2, max: 10, step: .1, value: .5, fmt: v => v.toFixed(1) + ' Hz' },
     { id: 'lat', type: 'range', label: 'Network delay (one way)', min: 5, max: 400, step: 5, value: 50, fmt: v => v + ' ms' },
@@ -1794,8 +1794,8 @@ const XR_LESSONS = [
     const up2 = new THREE.CatmullRomCurve3([V(.5, 1.2, -.3), V(1.8, 2.0, -.4), V(3.0, 1.0, -.4)]);
     const dn1 = new THREE.CatmullRomCurve3([V(3.0, 1.4, .4), V(1.8, 2.5, .5), V(.5, 1.4, .3)]);
     const dn2 = new THREE.CatmullRomCurve3([V(-.5, 1.4, .3), V(-1.2, 2.4, .5), V(-2.3, .6, .5)]);
-    [up1, up2].forEach(cv => c.line(cv.getPoints(40), COL.dig, { dashed: true, opacity: .4 }));
-    [dn1, dn2].forEach(cv => c.line(cv.getPoints(40), COL.phys, { dashed: true, opacity: .4 }));
+    [up1, up2].forEach(cv => c.line(cv.getPoints(40), COL.phys, { dashed: true, opacity: .4 }));
+    [dn1, dn2].forEach(cv => c.line(cv.getPoints(40), COL.dig, { dashed: true, opacity: .4 }));
     const pk = c.packets(260, .3);
     const stat = c.label('', V(2.2, 2.75, 0), 'm');
     let time = 0, nextTel = 0, nextCmd = 1.2, pumpReal = false, pumpTwinShown = false, cmdT = -1, ackT = -1, seeT = -1, soil = .3;
@@ -1809,17 +1809,17 @@ const XR_LESSONS = [
         if (time >= nextCmd) {
           nextCmd = time + 6; const want = !pumpReal; cmdT = time; ackT = -1; seeT = -1;
           const lost = P.qos === '0' && Math.random() < .25;
-          pk.spawn(dn1, { speed: sp, color: COL.phys, onArrive: () => {
-            pk.spawn(dn2, { speed: sp, color: COL.phys, dropAt: lost ? .5 : null, onArrive: () => {
+          pk.spawn(dn1, { speed: sp, color: COL.dig, onArrive: () => {
+            pk.spawn(dn2, { speed: sp, color: COL.dig, dropAt: lost ? .5 : null, onArrive: () => {
               pumpReal = want;
-              if (P.ack) pk.spawn(dn2.points ? new THREE.CatmullRomCurve3(dn2.points.slice().reverse()) : dn2, { speed: sp, color: COL.dig, onArrive: () => pk.spawn(new THREE.CatmullRomCurve3(dn1.points.slice().reverse()), { speed: sp, color: COL.dig, onArrive: () => { pumpTwinShown = pumpReal; ackT = time; } }) });
+              if (P.ack) pk.spawn(dn2.points ? new THREE.CatmullRomCurve3(dn2.points.slice().reverse()) : dn2, { speed: sp, color: COL.phys, onArrive: () => pk.spawn(new THREE.CatmullRomCurve3(dn1.points.slice().reverse()), { speed: sp, color: COL.phys, onArrive: () => { pumpTwinShown = pumpReal; ackT = time; } }) });
             } });
           } });
         }
         if (time >= nextTel) {
           nextTel = time + 1 / P.rate;
           const s = soil;
-          pk.spawn(up1, { speed: sp, color: COL.dig, onArrive: () => pk.spawn(up2, { speed: sp, color: COL.dig, onArrive: () => { twinSoil.material.opacity = .3 + .7 * s; if (!P.ack) pumpTwinShown = pumpReal; if (cmdT > 0 && seeT < 0 && pumpReal) seeT = time; } }) });
+          pk.spawn(up1, { speed: sp, color: COL.phys, onArrive: () => pk.spawn(up2, { speed: sp, color: COL.phys, onArrive: () => { twinSoil.material.opacity = .3 + .7 * s; if (!P.ack) pumpTwinShown = pumpReal; if (cmdT > 0 && seeT < 0 && pumpReal) seeT = time; } }) });
         }
         soil = clamp(soil + (pumpReal ? .12 : -.03) * dt, .1, 1);
         realLed.material.opacity = pumpReal ? 1 : .15; pump.userData.fill.material.color && pump.userData.fill.material.color.setHex(pumpReal ? MC.water : MC.servo);
@@ -1986,7 +1986,7 @@ const ADAPT_LESSONS = [
   device: [['plux', 'biosignalsplux ECG']],
   cam: [0.4, 4.4, 9.4], target: [0, 1.2, 0],
   body: [
-    'The biosignals software publishes the ECG as a Lab Streaming Layer (LSL) stream: samples with timestamps from the recording computer\'s clock, which LSL keeps aligned with other streams (Kothe et al., 2025). Unity does not read LSL directly in this course; a bridge script provided by the lecturer pulls LSL chunks and publishes them to MQTT.',
+    'The biosignals software publishes the ECG as a Lab Streaming Layer (LSL) stream: samples with timestamps from the recording computer\'s clock, which LSL keeps aligned with other streams, so every sample says when it was measured (Kothe et al., 2025). Unity does not read LSL directly in this course; a bridge script provided by the lecturer pulls LSL chunks and publishes them to MQTT.',
     'Two choices matter. How many samples go into one MQTT message (more per message means fewer messages but more waiting), and which time the twin uses: the LSL timestamp from the sensor side, or the moment the message arrived. Arrival time adds network delay and jitter to every heartbeat.'
   ],
   predict: { q: 'The bridge publishes ECG sampled at 500 Hz in chunks of 50 samples. How much delay does the batching alone add to the newest sample in a chunk, at most?', options: ['About 1 ms', 'About 100 ms', 'About 1 s'], answer: 1 },
@@ -2103,7 +2103,7 @@ const ADAPT_LESSONS = [
     'Control engineers fix this with three tools (Åström &amp; Murray, 2008): smoothing (a moving average over a few seconds), hysteresis (switch on above one value, off only below a lower one) and a minimum hold time. Each one trades flicker against a slower reaction, so you choose them per rule and document why.'
   ],
   predict: { q: 'The user\'s heart rate hovers around 100 bpm with normal beat-to-beat noise, and the rule is "dim the lights if HR > 100", with no smoothing or hysteresis. How often do the lights change?', options: ['About once a minute', 'Many times a minute (flicker)', 'Never'], answer: 1 },
-  test: 'Add smoothing, a hysteresis band and a hold time. The grey line is raw HR, blue is smoothed; orange bars show when the rule is on. At 30 s a real stress step begins.',
+  test: 'Add smoothing, a hysteresis band and a hold time. The orange line is the measured heart rate, the blue line is the smoothed one, and the blue bars show when the rule is on. At 30 s a real stress step begins.',
   controls: [
     { id: 'thr', type: 'range', label: 'Threshold (switch on above)', min: 85, max: 110, step: 1, value: 100, fmt: v => v + ' bpm' },
     { id: 'hys', type: 'range', label: 'Hysteresis band', min: 0, max: 12, step: 1, value: 0, fmt: v => v + ' bpm' },
@@ -2122,9 +2122,9 @@ const ADAPT_LESSONS = [
     const lo = 80, hi = 115, vy = h => (h - (lo + hi) / 2) / ((hi - lo) / 2);
     const rnd = mulberry32(5), T = 60, hr = new Float32Array(T * 10);
     for (let i = 0; i < hr.length; i++) { const t = i / 10; hr[i] = (t < 30 ? 99 : 106) + 2.2 * Math.sin(t * .7) + (rnd() * 2 - 1) * 3.2; }
-    const raw = dynLine(c, 600, COL.dim, { opacity: .7 }), sm = dynLine(c, 600, COL.dig, { opacity: .95 });
-    const thrL = dynLine(c, 2, COL.phys, { opacity: .8 }), offL = dynLine(c, 2, COL.phys, { opacity: .35 });
-    const bars = []; for (let i = 0; i < 60; i++) { const b = bx(c, 8 / 60 * .9, .18, .1, -4 + (i + .5) * 8 / 60, .75, -.55, { fill: COL.phys, line: COL.phys }); bars.push(b); }
+    const raw = dynLine(c, 600, COL.phys, { opacity: .55 }), sm = dynLine(c, 600, COL.dig, { opacity: .95 });   // raw = measured (orange), smoothed = computed (blue)
+    const thrL = dynLine(c, 2, COL.chalk, { opacity: .7 }), offL = dynLine(c, 2, COL.chalk, { opacity: .3 });  // on / off levels
+    const bars = []; for (let i = 0; i < 60; i++) { const b = bx(c, 8 / 60 * .9, .18, .1, -4 + (i + .5) * 8 / 60, .75, -.55, { fill: COL.dig, line: COL.dig }); bars.push(b); }   // rule state = twin decision (blue)
     c.label('rule on (lights dimmed)', V(-4, .45, -.5), 'm');
     // the room whose light the rule controls
     bx(c, 2.2, .06, 1.6, 3, .03, 2.2, { fill: MC.wood }); const lamp = c.glow(0xFFD27A, 1.3, V(3, 1.6, 2.2)); cy(c, .05, .05, 1.5, 3, .78, 2.2, { fill: MC.metal }, undefined, 8);
@@ -2166,7 +2166,7 @@ const ADAPT_LESSONS = [
   id: 'exper', phase: 'Adaptive twin', title: 'Testing the adaptation: a small user study',
   cam: [0.4, 4.0, 9.2], target: [0, 1.6, 0],
   body: [
-    'Requirement 6 asks whether the adaptation helps. That is a hypothesis: "with adaptive lighting, task time (or reported stress) is lower than without." The independent variable is the condition (adaptive vs static); the dependent variables are what you measure; everything else is kept constant.',
+    'Project2 requirement 6 asks whether the adaptation helps. That is a hypothesis: "with adaptive lighting, task time (or reported stress) is lower than without." The independent variable is the condition (adaptive vs static); the dependent variables are what you measure; everything else is kept constant.',
     'With few participants, a within-subject design (everyone tries both conditions, in counterbalanced order) is far more sensitive than splitting people into two groups. Even so, power is low for medium effects, so report effect sizes and confidence intervals, not only p-values (Cohen, 1988; Field, 2013).'
   ],
   predict: { q: 'Ten students test both conditions (within-subject). The true effect is medium (d = 0.5). What is the chance that a paired t-test at α = .05 finds it?', options: ['About 90%', 'About 30%', 'About 5%'], answer: 1 },
@@ -2176,7 +2176,7 @@ const ADAPT_LESSONS = [
     { id: 'n', type: 'range', label: 'Participants (total)', min: 6, max: 60, step: 2, value: 10, fmt: v => String(v) },
     { id: 'd', type: 'range', label: 'True effect size d', min: .1, max: 1.4, step: .05, value: .5, fmt: v => v.toFixed(2) }
   ],
-  prove: '<p>Power is the chance a test detects an effect that is really there. For a paired design the noncentrality is d·√n; with n = 10 and d = 0.5 that is 1.58, giving roughly 30% power. A between-subject design with 5 per group gets about 10%. To reach 80% power you need about 34 people within-subject, or about 64 per group between-subject.</p><pre class="eq">within  (paired t):  δ = d_z · √n            n₈₀ ≈ ((z₀.₉₇₅ + z₀.₈) / d)² + 2\nbetween (two groups): δ = d · √(n_g / 2)      n_g,₈₀ ≈ 2 ((z₀.₉₇₅ + z₀.₈) / d)²\npower ≈ Φ(δ − 1.96)      z₀.₉₇₅ = 1.96, z₀.₈ = 0.84\nreport: t(9) = 2.10, p = .065, d_z = 0.66, 95% CI [−0.3, 7.1] s</pre><p>The normal approximation is slightly optimistic for small n; use G*Power or statsmodels for real planning. d_z is taken equal to d here (correlation 0.5 between conditions).</p>',
+  prove: '<p>Power is the chance a test detects an effect that is really there. For a paired design the test statistic is shifted by δ = d·√n; with n = 10 and d = 0.5 that is 1.58, below the critical t of 2.26 for 9 degrees of freedom, so power is only about 30% (G*Power: 29%). In plain words: if the adaptation really helps, a study this small will miss it about two times out of three. A between-subject design with 5 per group gets about 10%. To reach 80% power you need about 34 people within-subject, or about 64 per group between-subject.</p><pre class="eq">within  (paired t):  δ = d_z · √n            n₈₀ ≈ ((z₀.₉₇₅ + z₀.₈) / d)² + 2\nbetween (two groups): δ = d · √(n_g / 2)      n_g,₈₀ ≈ 2 ((z₀.₉₇₅ + z₀.₈) / d)²\npower ≈ Φ(δ − t_crit)  (normal approximation; plate adds a small-n correction)\nz₀.₉₇₅ = 1.96, z₀.₈ = 0.84, t_crit(df = 9) = 2.26\nreport: t(9) = 2.10, p = .065, d_z = 0.66, 95% CI [−0.3, 7.1] s</pre><p>The plate’s power is an approximation within a few percentage points; use G*Power or statsmodels (TTestPower) for real planning. d_z is taken equal to d here (correlation 0.5 between conditions).</p>',
   teacher: {
     outcomes: ['State a testable hypothesis with independent and dependent variables.', 'Choose a within-subject, counterbalanced design and estimate power.'],
     misconception: 'p > .05 means the adaptation does not work. With 10 participants, a missing significant result mostly means the study was small.',
@@ -2202,8 +2202,13 @@ const ADAPT_LESSONS = [
       for (let i = 0; i < n; i++) { const person = g() * sd * .7; rows.push({ a: mu + person + g() * sd * .7, b: mu - P.d * sd + person + g() * sd * .7, grp: i % 2 }); }
       const z = 1.96 + .84;
       const delta = P.design === 'within' ? P.d * Math.sqrt(n) : P.d * Math.sqrt((n / 2) / 2);
-      const nNeed = P.design === 'within' ? Math.ceil((z / P.d) ** 2 + 2) : Math.ceil(2 * (z / P.d) ** 2);
-      stats = { rows, power: phi(delta - 1.96), nNeed };
+      // Sample sizes for 80 % power, with the usual small-sample correction terms
+      const nNeed = P.design === 'within' ? Math.ceil((z / P.d) ** 2 + 2) : Math.ceil(2 * (z / P.d) ** 2 + 1.96 ** 2 / 4);
+      // Power of the t-test: critical t for df (Cornish-Fisher), then a normal approximation
+      // to the noncentral t (close to G*Power for n >= 5)
+      const df = P.design === 'within' ? n - 1 : n - 2, z0 = 1.96;
+      const tc = z0 + (z0 ** 3 + z0) / (4 * df) + (5 * z0 ** 5 + 16 * z0 ** 3 + 3 * z0) / (96 * df * df);
+      stats = { rows, power: phi((delta - tc) / Math.sqrt(1 + tc * tc / (2 * df))), nNeed };
     }
     return {
       update(dt, t, P) {
@@ -2378,7 +2383,7 @@ const ADAPT_LESSONS = [
     { id: 'rh', type: 'range', label: 'Humidity (XHT11)', min: 20, max: 90, step: 1, value: 55, fmt: v => v + ' %' },
     { id: 'hr', type: 'range', label: 'Resident heart rate (ECG)', min: 55, max: 130, step: 1, value: 96, fmt: v => v + ' bpm' }
   ],
-  prove: '<p>Without retain, a freshly started twin shows "unknown" for every device until it changes, which may be hours for a closed window. With retained states it is correct within one round trip. The comfort rule here fires when the room is outside the comfort band and the resident is occupied and aroused; each condition comes from a different source, which is exactly why the twin needs one shared clock and topic plan.</p><pre class="eq">retain: home/state/# and home/livingroom/# (last value)   never: home/cmd/#\ncomfort band (teaching): 20–25 °C and 30–60 %RH\nfan_on   = occupied ∧ (T > 25 ∨ RH > 60)\ncalm_RGB = occupied ∧ HR > HR_rest + 20  (with hysteresis, see the adaptation lesson)</pre><p>The comfort band is a simplified teaching rule, not a thermal-comfort model.</p>',
+  prove: '<p>Without retain, a freshly started twin shows "unknown" for every device until it changes, which may be hours for a closed window. With retained states it is correct within one round trip. The comfort rule here fires when the room is outside the comfort band and the room is occupied and the resident’s heart rate is raised; each condition comes from a different source, which is exactly why the twin needs one shared clock and topic plan.</p><pre class="eq">retain: home/state/# and home/livingroom/# (last value)   never: home/cmd/#\ncomfort band (teaching): 20–25 °C and 30–60 %RH\nfan_on   = occupied ∧ (T > 25 ∨ RH > 60)\ncalm_RGB = occupied ∧ HR > HR_rest + 20  (with hysteresis, see the adaptation lesson)</pre><p>The comfort band is a simplified teaching rule, not a thermal-comfort model.</p>',
   teacher: {
     outcomes: ['Choose which topics to retain in a Home Assistance twin.', 'Write a comfort rule that combines kit sensors with ECG data.'],
     misconception: 'Retain everything to be safe. Retained commands replay on reconnect and can actuate the real home unexpectedly.',
@@ -2477,7 +2482,7 @@ const USD_LESSONS = [
   cam: [5.2, 4.6, 7.6], target: [0, 1.7, 0],
   body: [
     'NVIDIA Omniverse is not one program. It is a stack: OpenUSD describes the scene (the same open format Pixar created and the Alliance for OpenUSD now develops), the Kit SDK builds applications on top of it, RTX renders it and PhysX 5 simulates it (Pixar Animation Studios, n.d.; Alliance for OpenUSD, 2023).',
-    'Isaac Sim is the robotics application built on Kit: robot importers (URDF, MJCF), sensors (cameras, LiDAR), ROS 2 bridges and synthetic data with Replicator. Isaac Lab sits on top of Isaac Sim and trains robot policies with reinforcement or imitation learning across thousands of parallel copies on one GPU (Mittal et al., 2023; NVIDIA, 2026). In this course the final twin runs in Unity 6; Isaac is for teaching and exercises.'
+    'Isaac Sim is the robotics application built on Kit: robot importers (URDF, and MJCF from MuJoCo), sensors (cameras, LiDAR), ROS 2 bridges and synthetic data with Replicator (randomised images that come with automatic labels). Isaac Lab sits on top of Isaac Sim and trains robot policies with reinforcement or imitation learning across thousands of parallel copies on one GPU (Mittal et al., 2023; NVIDIA, 2026). In this course the final twin runs in Unity 6; Isaac is for teaching and exercises.'
   ],
   predict: { q: 'You want to train a walking or driving policy with 4,096 robot copies in parallel on one GPU. Which tool is made for that?', options: ['Omniverse USD Composer', 'Isaac Lab', 'Unity 6 with a VR headset'], answer: 1 },
   test: 'Pick a task and see which layer of the stack does the work, which file format it reads and which language you write.',
@@ -2536,7 +2541,7 @@ const USD_LESSONS = [
   id: 'usdfirst', phase: 'OpenUSD & NVIDIA Isaac', title: 'Your first USD scene, step by step',
   cam: [4.4, 4.2, 7.6], target: [0, 1.2, 0],
   body: [
-    'A USD file holds a stage: a tree of prims (scene objects) under a root such as /World. Each prim has a type (Xform, Mesh, Cube, DistantLight, Camera) and attributes. Position, rotation and scale are not baked into the geometry; they are xformOps on the prim, so moving an object is changing one attribute (Pixar Animation Studios, n.d.).',
+    'A USD file holds a stage: a tree of prims (scene objects) under a root such as /World. Each prim has a type (Xform, Mesh, Cube, DistantLight, Camera) and attributes. Position, rotation and scale are not baked into the geometry; they are transform operations (xformOps) on the prim, so moving an object is changing one attribute (Pixar Animation Studios, n.d.).',
     'Two stage settings cause most import surprises: upAxis (Y in Unity, usually Z in Isaac Sim) and metersPerUnit (1.0 for metres, 0.01 for centimetres). Write them explicitly in your first line of metadata and every tool will agree on what "up" and "1" mean.'
   ],
   predict: { q: 'In your USD stage the cube sits 0.5 m above the floor. Where is that 0.5 stored?', options: ['In the cube\'s vertex positions', 'In an xformOp:translate attribute on the cube prim', 'In a separate .json file next to the stage'], answer: 1 },
@@ -2606,7 +2611,7 @@ const USD_LESSONS = [
   id: 'usdrobot', phase: 'OpenUSD & NVIDIA Isaac', title: 'A small mobile robot in USD: bodies, joints, drives',
   cam: [4.6, 7.6, 10.4], target: [-.3, .7, -.6],
   body: [
-    'A mobile robot in USD is a small tree of prims with physics schemas. The chassis gets RigidBodyAPI, CollisionAPI, MassAPI and ArticulationRootAPI; each wheel is its own rigid body; a RevoluteJoint connects each wheel to the chassis, and a DriveAPI on the joint sets a target angular velocity, just like a motor (NVIDIA, 2026).',
+    'A mobile robot in USD is a small tree of prims with physics schemas. The chassis gets RigidBodyAPI (physics moves it), CollisionAPI (it can touch things), MassAPI (it has a mass) and ArticulationRootAPI (it is the root of a jointed robot); each wheel is its own rigid body; a RevoluteJoint connects each wheel to the chassis, and a DriveAPI on the joint sets a target angular velocity, just like a motor (NVIDIA, 2026).',
     'With two driven wheels and a caster this is a differential-drive robot. Its motion follows from the wheel speeds: equal speeds drive straight, unequal speeds turn, opposite speeds spin on the spot (Siegwart et al., 2011). The same model drives a TurtleBot, a vacuum robot or a warehouse cart.'
   ],
   predict: { q: 'Wheel radius 3.5 cm, wheel separation 16 cm. The left wheel turns at 2 rad/s and the right at 4 rad/s. What does the robot do?', options: ['Drives straight ahead', 'Curves to the left in a circle of about 24 cm radius', 'Spins on the spot'], answer: 1 },
@@ -2663,7 +2668,7 @@ const USD_LESSONS = [
   id: 'mlagents', phase: 'Unity 6 physics', title: 'Reinforcement learning in Unity 6 with ML-Agents',
   cam: [0.9, 5.6, 9.8], target: [.6, 1.2, 0],
   body: [
-    'In reinforcement learning an agent observes its situation, chooses an action, and receives a reward; training adjusts a neural-network policy so that the total reward grows (Sutton &amp; Barto, 2018). Unity\'s ML-Agents toolkit turns a Unity 6 scene into a training environment: you write an Agent script in C#, a Python trainer (PPO or SAC) learns the policy, and the result runs back in Unity through the Inference Engine (Juliani et al., 2018; Unity Technologies, 2025).',
+    'In reinforcement learning an agent observes its situation, chooses an action, and receives a reward; training adjusts a neural-network policy so that the total reward grows (Sutton &amp; Barto, 2018). Unity\'s ML-Agents toolkit turns a Unity 6 scene into a training environment: you write an Agent script in C#, a Python trainer learns the policy with PPO or SAC, two standard RL algorithms, and the result runs back in Unity through the Inference Engine (Juliani et al., 2018; Unity Technologies, 2025).',
     'Here the mobile robot from the USD lesson learns to drive to a target. What you reward decides what it learns: a reward only on arrival (sparse) gives almost no signal in a large arena, while a small reward for getting closer (dense) guides it, but can also be gamed. Running several copies of the arena in parallel collects experience faster.'
   ],
   predict: { q: 'In a large arena, which reward usually makes the robot learn to reach the target in fewer training steps?', options: ['+1 only when it reaches the target (sparse)', 'A small reward for every step that brings it closer, plus +1 at the target (dense)', 'Both learn equally fast'], answer: 1 },
@@ -3057,7 +3062,7 @@ const CV_LESSONS = [
     { id: 'f', type: 'range', label: 'Focal length f', min: 300, max: 1200, step: 10, value: 640, fmt: v => v + ' px' },
     { id: 'dd', type: 'range', label: 'Matching error Δd', min: .1, max: 1, step: .05, value: .5, fmt: v => v.toFixed(2) + ' px' }
   ],
-  prove: '<p>Depth comes from disparity, d = f · B / Z. Differentiating gives a depth error of ΔZ ≈ Z² · Δd / (f · B), which grows with the square of distance, so doubling Z makes the error four times larger. A wider baseline or a longer focal length helps, at the cost of a larger minimum range (Hartley &amp; Zisserman, 2004).</p><pre class="eq">Z = f · B / d              ΔZ ≈ Z² · Δd / (f · B)\nf = 640 px, B = 7.5 cm, Δd = 0.5 px\nZ = 1 m → d = 48 px, ΔZ ≈ 1.0 cm\nZ = 2 m → d = 24 px, ΔZ ≈ 4.2 cm\nstereo = cv2.StereoSGBM_create(numDisparities=128, blockSize=5)\ndisp = stereo.compute(left, right).astype(np.float32) / 16</pre><p>The baseline on the plate is drawn ten times wider so the two rays can be told apart.</p>',
+  prove: '<p>Depth comes from disparity, d = f · B / Z. A small matching error Δd then gives a depth error of ΔZ ≈ Z² · Δd / (f · B), which grows with the square of distance, so doubling Z makes the error four times larger. A wider baseline or a longer focal length helps, at the cost of a larger minimum range (Hartley &amp; Zisserman, 2004).</p><pre class="eq">Z = f · B / d              ΔZ ≈ Z² · Δd / (f · B)\nf = 640 px, B = 7.5 cm, Δd = 0.5 px\nZ = 1 m → d = 48 px, ΔZ ≈ 1.0 cm\nZ = 2 m → d = 24 px, ΔZ ≈ 4.2 cm\nstereo = cv2.StereoSGBM_create(numDisparities=128, blockSize=5)\ndisp = stereo.compute(left, right).astype(np.float32) / 16</pre><p>The baseline on the plate is drawn ten times wider so the two rays can be told apart.</p>',
   teacher: {
     outcomes: ['Convert disparity to depth and estimate the depth error at a given range.', 'Choose baseline and resolution for the working distance of a twin.'],
     misconception: 'Depth cameras are equally accurate at every range. The error grows with the square of distance.',
