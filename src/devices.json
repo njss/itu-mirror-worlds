@@ -1,0 +1,10 @@
+[
+ {"id":"zed2i","title":"ZED 2i stereo camera","desc":"How a stereo depth camera turns two images into distance: ZED 2i at real size, with disparity and depth error computed live."},
+ {"id":"quest3","title":"Meta Quest 3","desc":"Inside a standalone mixed reality headset: pancake lenses, displays, tracking and passthrough cameras, depth projector."},
+ {"id":"touch","title":"Touch Plus controllers","desc":"How Quest 3 controllers are tracked without a ring: IR LEDs, headset cameras, IMU fusion and hand tracking fallback."},
+ {"id":"varjo","title":"Varjo XR-3 and XR-4","desc":"High end mixed reality: human eye resolution, focus displays, video passthrough, LiDAR and eye tracking."},
+ {"id":"tracking","title":"Inside-out vs outside-in","desc":"Vive Tracker 3.0 and SteamVR Base Station 2.0: laser sweeps and photodiode timing versus camera based inside-out tracking."},
+ {"id":"ml2","title":"Magic Leap 2","desc":"Optical see-through AR: waveguides, LCoS projectors, dynamic dimming and the sensor array of Magic Leap 2."},
+ {"id":"pro3","title":"Matterport Pro3","desc":"LiDAR plus 360 panorama capture: how the Pro3 scans a building into a digital twin, with point density computed live."},
+ {"id":"x5","title":"Insta360 X5","desc":"How a dual fisheye 360 camera works: two 1/1.28 inch sensors, stitching overlap, and pixels per degree for Gaussian splatting."}
+]

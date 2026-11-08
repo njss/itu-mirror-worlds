@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device Lab · Mirror Worlds</title>
+<meta name="description" content="Eight XR and reality-capture devices in 3D at real size, with live solvers, explode, cutaway and x-ray, and VR / MR viewing on Meta Quest 3.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* paper studio, matching the device pages; orange = physical, blue = digital (Okabe-Ito) */
+  :root{--paper:#f3f2ee;--ink:#16181b;--soft:#5a5f66;--line:rgba(0,0,0,.12);--card:#fbfaf7;--blue:#0072B2;--orange:#E69F00}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--paper:#0f1012;--ink:#ecebe7;--soft:#a3a7ad;--line:rgba(255,255,255,.12);--card:#17181b}}
+  :root[data-theme="dark"]{--paper:#0f1012;--ink:#ecebe7;--soft:#a3a7ad;--line:rgba(255,255,255,.12);--card:#17181b}
+  *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.55 Inter,system-ui,sans-serif}
+  main{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .top a{color:var(--ink);text-decoration:none;font:500 12px Inter;border:1px solid var(--line);padding:6px 12px;border-radius:999px;background:var(--card)}
+  h1{font:400 clamp(44px,7vw,84px)/1 "Instrument Serif",Georgia,serif;margin:36px 0 6px}
+  h1 i{color:var(--soft)}
+  .lede{max-width:760px;color:var(--soft);font-size:17px}
+  .xr{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 30px}
+  .xr span{font:500 12px "JetBrains Mono",monospace;padding:6px 10px;border-radius:6px;border:1px solid var(--line)}
+  .xr .vr{border-color:var(--blue);color:var(--blue)} .xr .mr{border-color:var(--orange);color:#9a6a00}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  a.card{display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;color:inherit;text-decoration:none;transition:transform .15s,border-color .15s}
+  a.card:hover{transform:translateY(-2px);border-color:var(--blue)}
+  .no{font:500 11px "JetBrains Mono",monospace;color:var(--soft);letter-spacing:.08em}
+  .card h2{font:400 30px/1.05 "Instrument Serif",Georgia,serif;margin:2px 0}
+  .card p{margin:0;color:var(--soft);font-size:14px}
+  .eq{margin-top:auto;padding-top:10px;font:400 12px "JetBrains Mono",monospace;color:var(--blue)}
+  .tag{font:500 11px Inter;color:var(--soft)}
+  h3{font:500 13px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;margin:44px 0 8px;color:var(--soft)}
+  ol{max-width:760px;padding-left:1.2em} li{margin:4px 0}
+  .refs p{max-width:860px;padding-left:1.6em;text-indent:-1.6em;margin:6px 0;font-size:13px;color:var(--soft)}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><a href="../index.html">← Mirror Worlds book</a><span class="tag">DigiTech2 · Project2 · RITA Lab, IT:U</span></div>
+  <h1>Device Lab <i>how XR hardware works</i></h1>
+  <p class="lede">Eight devices you will use or meet when building digital twins, rebuilt at real size from published specifications. Each page runs a small physical model live: change the slider, read the number, then <b>explode</b>, <b>cut away</b> or <b>x-ray</b> the device, and press the red button to see what breaks it.</p>
+  <div class="xr"><span class="vr">Enter VR · hold the device in a studio</span><span class="mr">Enter MR · see it in your room (Quest 3 passthrough)</span><span>grip = grab · trigger = panel / explode · stick = turn &amp; zoom · A = x-ray · B = cut</span></div>
+  <div class="grid">
+    <a class="card" href="zed2i.html"><span class="no">No. 01 · depth camera</span><h2>ZED 2i</h2><p>Two eyes 12 cm apart: disparity, depth error and why it grows with distance squared.</p><span class="eq">ΔZ = Z²·Δd / (f·B)</span></a>
+    <a class="card" href="quest3.html"><span class="no">No. 02 · headset</span><h2>Meta Quest 3</h2><p>Pancake optics, pixels per degree, eye buffer and the frame budget your Unity scene must meet.</p><span class="eq">load = 2·w·h·f</span></a>
+    <a class="card" href="touch.html"><span class="no">No. 03 · controller</span><h2>Touch Plus</h2><p>Ringless tracking: hidden IR LEDs, perspective-n-point, IMU drift and hand-tracking fusion.</p><span class="eq">e = ½·b·t²</span></a>
+    <a class="card" href="varjo.html"><span class="no">No. 04 · headset</span><h2>Varjo XR-3 · XR-4</h2><p>Human-eye resolution, bionic focus displays, 200 Hz eye tracking and foveated rendering.</p><span class="eq">acuity = 60 / (1 + e/2.3)</span></a>
+    <a class="card" href="tracking.html"><span class="no">No. 05 · tracking</span><h2>Lighthouse vs inside-out</h2><p>Vive Tracker 3.0 and Base Station 2.0: laser sweeps turned into angles, compared with cameras.</p><span class="eq">θ = 2π·f·t</span></a>
+    <a class="card" href="ml2.html"><span class="no">No. 06 · AR glasses</span><h2>Magic Leap 2</h2><p>Waveguides and LCoS projectors, why holograms fade in daylight, and dynamic dimming.</p><span class="eq">CR = (L<sub>v</sub> + T·L<sub>bg</sub>) / T·L<sub>bg</sub></span></a>
+    <a class="card" href="pro3.html"><span class="no">No. 07 · scanner</span><h2>Matterport Pro3</h2><p>LiDAR plus HDR panorama: point spacing with range, and the phantom room behind a mirror.</p><span class="eq">s = r·Δθ</span></a>
+    <a class="card" href="x5.html"><span class="no">No. 08 · 360 camera</span><h2>Insta360 X5</h2><p>Dual fisheye capture, the stitch line, parallax on close subjects, and px/° for splatting.</p><span class="eq">seam = atan(b/d)·PPD</span></a>
+  </div>
+  <h3>How to use it in class</h3>
+  <ol>
+    <li>Open a device on a laptop, predict the number before you move the slider, then check.</li>
+    <li>Put on a Quest 3, open the same page in the Meta Quest Browser and press <b>Enter MR</b>. Hold the real device next to the virtual one.</li>
+    <li>Link back to the book lesson: stereo → ZED 2i, splats → X5, LiDAR → Pro3, bidirectional data → Lighthouse and ZED.</li>
+  </ol>
+  <h3>References</h3>
+  <div class="refs">
+    <p>Airsup. (2025). <i>Machine Skill</i> [Computer software]. GitHub. https://github.com/AirsupHQ/machine-skill</p>
+    <p>HTC Corporation. (n.d.). <i>VIVE Tracker (3.0)</i>. https://shop-us.vive.com/collections/accessories/products/2104002</p>
+    <p>Lang, B. (2023, October 5). Meta explains how Quest 3 controllers are tracked without rings. <i>UploadVR</i>. https://www.uploadvr.com/meta-explains-quest-3-controller-tracking/</p>
+    <p>Matterport. (n.d.). <i>Matterport Pro3 camera</i>. https://matterport.com/store/product/cam-mc300-x</p>
+    <p>Stereolabs. (n.d.). <i>ZED 2i</i>. https://www.stereolabs.com/en-at/store/products/zed-2i</p>
+    <p>VR &amp; AR Wiki. (n.d.). <i>Magic Leap 2; SteamVR Base Station 2.0; Varjo XR-4</i>. https://vrarwiki.com</p>
+    <p>Wikipedia contributors. (2024). Meta Quest 3. In <i>Wikipedia</i>. https://en.wikipedia.org/wiki/Meta_Quest_3</p>
+  </div>
+</main>
+</body>
+</html>

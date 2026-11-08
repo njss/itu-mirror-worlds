@@ -109,6 +109,8 @@ body{background:var(--desk);color:var(--bar-text);font-family:var(--f-body);over
 .card{position:absolute;z-index:5;top:64px;bottom:16px;right:max(16px, env(safe-area-inset-right, 0px));width:min(370px, 34vw);overflow-y:auto;overscroll-behavior:contain;
   background:var(--paper);color:var(--ink);border-radius:5px;padding:22px 22px 18px;box-shadow:0 24px 50px -18px rgba(0,0,0,.85),0 0 0 1px rgba(0,0,0,.4);
   background-image:linear-gradient(var(--paper),var(--paper)),repeating-linear-gradient(transparent 0 27px, rgba(36,102,176,.06) 27px 28px)}
+.devlinks{margin:.35rem 0 0;font:500 .72rem/1.5 var(--f-mono);color:var(--ink-soft)}.devlinks a{color:var(--dig, #0072B2);margin-right:.6rem;text-decoration:none;border-bottom:1px solid currentColor}
+a.btn.devlab{text-decoration:none;display:inline-flex;align-items:center}
 .eyebrow{font:500 .66rem/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0}
 .card h2{font-family:var(--f-display);font-weight:600;font-size:1.45rem;line-height:1.1;margin:.3em 0 .2em;text-wrap:balance}
 .step{border-top:1px solid var(--rule);padding-top:14px;margin-top:16px;display:flex;flex-direction:column;gap:10px}
@@ -196,6 +198,7 @@ details.txt p{margin:0;font-size:.9rem;line-height:1.6}
     </div>
     <div class="toc" id="toc" hidden role="region" aria-label="Table of contents"></div>
     <div class="tools">
+      <a class="btn devlab" href="lab/index.html" title="Real devices in 3D, with VR and MR">Device Lab · XR</a>
       <span class="tally" id="tally">Stamps <b>0</b></span>
       <button class="btn" id="openNotes" type="button">Teacher's notes</button>
     </div>
@@ -1496,6 +1499,346 @@ const KIT_LESSONS = [
 }
 ];
 
+/* ==================================================================
+   XR, PHYSICS AND TWIN DATA LESSONS
+   Four lessons that pair with the Device Lab pages (lab/*.html):
+     gsanat   Inside one Gaussian splat (memory and rendering cost)
+     colliders  Collision meshes in Unity 6
+     rigid    Rigid bodies, the fixed timestep and tunnelling
+     bidir    Bidirectional twin data (telemetry up, commands down)
+   Each lesson keeps the book's Predict → Test → Prove structure.
+   Builds use the rich-plate helpers (bx, cy, sph, MC, ROLE) from
+   part_rich1.js; they run later, when the lesson is opened.
+================================================================== */
+Object.assign(REFS, {
+  unity6physics: 'Unity Technologies. (2024). <i>Unity 6 manual: Collision, Rigidbody and Mesh Collider component reference</i>. https://docs.unity3d.com/6000.0/Documentation/Manual/collision-section.html',
+  ericson2005: 'Ericson, C. (2005). <i>Real-time collision detection</i>. Morgan Kaufmann.',
+  zwicker2001: 'Zwicker, M., Pfister, H., van Baar, J., &amp; Gross, M. (2001). EWA volume splatting. In <i>Proceedings of IEEE Visualization 2001</i> (pp. 29–36). IEEE. https://doi.org/10.1109/VISUAL.2001.964490',
+  grieves2014: 'Grieves, M. (2014). <i>Digital twin: Manufacturing excellence through virtual factory replication</i> [White paper]. Florida Institute of Technology.',
+  kritzinger2018: 'Kritzinger, W., Karner, M., Traar, G., Henjes, J., &amp; Sihn, W. (2018). Digital twin in manufacturing: A categorical literature review and classification. <i>IFAC-PapersOnLine, 51</i>(11), 1016–1022. https://doi.org/10.1016/j.ifacol.2018.08.474',
+  mqtt5: 'OASIS. (2019). <i>MQTT version 5.0</i> (OASIS Standard). https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html'
+});
+
+// SH coefficients per colour channel for each degree: (l+1)^2
+const SH_FLOATS = d => 3 * (d + 1) * (d + 1);
+
+const XR_LESSONS = [
+/* ---------------------------------------------------------------- 1 */
+{
+  id: 'gsanat', phase: 'Reality capture', title: 'Inside one Gaussian splat',
+  device: [['x5', 'Insta360 X5'], ['pro3', 'Matterport Pro3']],
+  cam: [0.8, 2.8, 6.6], target: [0, 1.2, 0],
+  body: [
+    'A splat is a 3D Gaussian: a fuzzy ellipsoid with a centre, three scales, a rotation, an opacity and a colour that changes with the viewing direction (spherical harmonics). For each camera, the renderer projects every Gaussian to a 2D ellipse, sorts them by depth and blends them front to back (Kerbl et al., 2023; Zwicker et al., 2001).',
+    'All of these numbers are stored per splat, so a scan\'s memory and frame rate in Unity depend on how many splats you keep and how many colour coefficients each one has.'
+  ],
+  predict: { q: 'A room scan has 3 million splats with spherical harmonics of degree 3. Stored as 32-bit floats, roughly how much memory does it need?', options: ['About 30 MB', 'About 700 MB', 'About 7 GB'], answer: 1 },
+  test: 'Stretch the splat, change its opacity and the spherical-harmonics degree, and stack more splats on the ray. Watch the footprint, the transmittance and the bytes per splat.',
+  controls: [
+    { id: 'stretch', type: 'range', label: 'Anisotropy (long / short axis)', min: 1, max: 8, step: .1, value: 3, fmt: v => v.toFixed(1) + ' ×' },
+    { id: 'alpha', type: 'range', label: 'Opacity α of each splat', min: .05, max: .95, step: .01, value: .45, fmt: v => v.toFixed(2) },
+    { id: 'n', type: 'range', label: 'Splats on the ray', min: 1, max: 8, step: 1, value: 4, fmt: v => String(v) },
+    { id: 'sh', type: 'seg', label: 'Spherical harmonics degree', options: [['0', '0 (flat colour)'], ['1', '1'], ['3', '3 (default)']], value: '3' }
+  ],
+  prove: '<p>Each splat stores a position (3 floats), a scale (3), a rotation quaternion (4), an opacity (1) and 3·(l+1)² colour coefficients: 48 at degree 3. That is 59 floats, or 236 bytes. Three million splats need about 708 MB before compression, which is why Unity importers quantise or drop the higher SH degrees.</p><pre class="eq">Σ = R · S · Sᵀ · Rᵀ             (3D covariance)\nΣ\' = J · W · Σ · Wᵀ · Jᵀ        (2D footprint on screen)\nC = Σᵢ cᵢ αᵢ Πⱼ<ᵢ (1 − αⱼ)        (front-to-back blending)\nbytes = 4 · (3 + 3 + 4 + 1 + 3(l+1)²)   l = 3 → 236 B\n3 M splats × 236 B ≈ 708 MB</pre><p>The footprint size uses a 600 px focal length and a 3σ cut-off.</p>',
+  teacher: {
+    outcomes: ['Name the parameters stored in each Gaussian and estimate memory for a scan.', 'Explain alpha compositing and why splats must be depth sorted.'],
+    misconception: 'Splats are points. They are oriented, stretched ellipsoids, and the stretch lets few splats cover thin edges.',
+    lab: 'Export the same scene at SH degree 0 and 3 from Postshot, import both into Unity 6 and compare file size, frame time on Quest 3 and view-dependent highlights.',
+    fits: 'DigiTech2 Unit 3 · 3D Scanning', refs: ['kerbl2023', 'zwicker2001']
+  },
+  build(c) {
+    // a ray from a camera (left) through a stack of splats toward the background (right)
+    const CAM = V(-3.2, 1.2, 0);
+    bx(c, .5, .34, .3, CAM.x, CAM.y, 0, { fill: MC.black, role: 'sensor' });
+    c.ink(new THREE.CylinderGeometry(.1, .12, .14, 16).rotateZ(Math.PI / 2).translate(CAM.x + .3, CAM.y, 0), { fill: MC.metal });
+    c.label('camera', CAM.clone().add(V(0, .45, 0)), 'm rs');
+    cy(c, 2.4, 2.4, .04, 0, -.02, 0, { fill: MC.stone, line: COL.dim, fillOpacity: .35 }, undefined, 48);
+    const ray = c.line([V(CAM.x + .4, CAM.y, 0), V(3.4, CAM.y, 0)], COL.chalk, { dashed: true, opacity: .6 });
+    void ray;
+    // the hero splat: nested shells at 1σ, 2σ and 3σ around the first position on the ray
+    const hero = new THREE.Group(); hero.position.set(-1.2, 1.2, 0); c.root.add(hero);
+    const shells = [1, 2, 3].map((k, i) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(.18 * k, 32, 20), new THREE.MeshBasicMaterial({ color: turboHex(.15 + i * .1), transparent: true, opacity: .35 - i * .1, depthWrite: false, blending: MODE.blend }));
+      hero.add(m); return m;
+    });
+    const axesG = new THREE.Group(); hero.add(axesG);
+    [[AX.x, V(1, 0, 0)], [AX.y, V(0, 1, 0)], [AX.z, V(0, 0, 1)]].forEach(([col, d]) => c.line([V(0, 0, 0), d.clone().multiplyScalar(.7)], col, {}, axesG));
+    c.label('one Gaussian · 1σ 2σ 3σ', V(-1.2, 2.25, 0), 'd');
+    // the stack of further splats along the ray
+    const stack = [];
+    for (let i = 0; i < 8; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(.22, 24, 16), new THREE.MeshBasicMaterial({ color: turboHex(.25 + i * .08), transparent: true, opacity: .4, depthWrite: false, blending: MODE.blend }));
+      m.position.set(-.2 + i * .45, 1.2 + Math.sin(i * 1.7) * .08, Math.cos(i * 2.3) * .1); m.scale.set(1, .6, .8); c.root.add(m); stack.push(m);
+    }
+    // screen-space footprint: a 2D ellipse on a "screen" plane above the camera
+    const scr = bx(c, .04, 1.3, 1.3, -2.55, 2.5, 0, { fill: MC.white, line: COL.chalk, fillOpacity: .6 });
+    void scr;
+    const foot = new THREE.Mesh(new THREE.CircleGeometry(.25, 48), new THREE.MeshBasicMaterial({ color: COL.dig, transparent: true, opacity: .7, side: THREE.DoubleSide, depthWrite: false }));
+    foot.position.set(-2.52, 2.5, 0); foot.rotation.y = Math.PI / 2; c.root.add(foot);
+    c.label('2D footprint (projected Σ\')', V(-2.55, 3.3, 0), 'm');
+    // transmittance bar: how much light still passes after each splat
+    const bars = []; for (let i = 0; i < 9; i++) { const b = bx(c, .2, 1, .2, -.2 + i * .45 - .225, .5, -1.1, { fill: COL.phys, line: COL.dim }); bars.push(b); }
+    c.label('transmittance T after each splat', V(1.2, -.05, -1.4), 'm');
+    const pixel = c.glow(COL.dig, 1.2, V(CAM.x + .55, CAM.y, .0));
+    let T = 1, nNow = 4;
+    return {
+      update(dt, t, P) {
+        const s = P.stretch;
+        hero.scale.set(s * .55, .55, .7); hero.rotation.set(0, t * .25, .45);
+        nNow = P.n;
+        // compositing front to back: colour contributions and remaining transmittance
+        T = 1; let col = new THREE.Color(0, 0, 0);
+        stack.forEach((m, i) => {
+          const on = i < P.n; m.visible = on; m.material.opacity = on ? P.alpha * .8 : 0;
+          if (!on) return;
+          const ci = new THREE.Color(turboHex(.25 + i * .08));
+          // view dependence (SH): degree 0 is flat, higher degrees shift the hue with the camera angle
+          if (P.sh !== '0') ci.offsetHSL(Math.sin(t * .8 + i) * (P.sh === '3' ? .06 : .03), 0, 0);
+          m.material.color.copy(ci);
+          col.add(ci.multiplyScalar(P.alpha * T)); T *= (1 - P.alpha);
+        });
+        bars.forEach((b, i) => { const Ti = i === 0 ? 1 : Math.pow(1 - P.alpha, Math.min(i, P.n)); b.visible = i <= P.n; b.scale.y = Math.max(.02, Ti); });
+        pixel.material.color.copy(col.r + col.g + col.b > 0 ? col : new THREE.Color(COL.dim));
+        foot.scale.set(1, Math.min(3, s * .55) , 1); foot.rotation.x = .45;
+        shells.forEach((m, i) => { m.material.opacity = (.35 - i * .1) * (.4 + P.alpha); });
+      },
+      readouts(P) {
+        const l = +P.sh, floats = 3 + 3 + 4 + 1 + SH_FLOATS(l), bytes = 4 * floats;
+        const fpx = 600, z = 3, sigma = .18;                     // footprint: 3σ radius on screen at 3 m
+        const rLong = 3 * sigma * P.stretch * .55 * fpx / z, rShort = 3 * sigma * .55 * fpx / z;
+        return [['Bytes per splat', bytes + ' B (' + floats + ' floats)', 'd'], ['3 M splats', (3e6 * bytes / 1e6).toFixed(0) + ' MB'],
+          ['Footprint (3σ) at 3 m', Math.round(rLong) + ' × ' + Math.round(rShort) + ' px'], ['Light left after ' + nNow + ' splats', Math.round(T * 100) + ' %', T < .05 ? 'p' : '']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 2 */
+{
+  id: 'colliders', phase: 'Unity 6 physics', title: 'Collision meshes in Unity 6',
+  device: [['quest3', 'Meta Quest 3'], ['touch', 'Touch Plus']],
+  cam: [3.8, 3.2, 5.2], target: [0, 1.0, 0],
+  body: [
+    'What you see and what the physics engine touches are different meshes. The visual mesh can have thousands of triangles; the collider is a simpler shape that PhysX can test quickly. Unity offers primitive colliders (box, sphere, capsule), a convex Mesh Collider (at most 255 faces) and a non-convex Mesh Collider.',
+    'A non-convex Mesh Collider follows every dent, but a dynamic Rigidbody cannot use it: it must be static or kinematic. Moving parts such as a gripper or a cup in the twin use convex shapes or a compound of primitives (Unity Technologies, 2024).'
+  ],
+  predict: { q: 'Your digital twin has a mug that the SO-100 arm must pick up and drop, so it needs a dynamic Rigidbody. A ball should still fall inside it. Which collider?', options: ['Non-convex Mesh Collider of the visual mesh', 'One convex Mesh Collider', 'A compound of primitive colliders (or a convex decomposition)'], answer: 2 },
+  test: 'Switch collider types and watch where the ball stops. Compare triangle counts and whether the setup is allowed on a moving Rigidbody.',
+  controls: [
+    { id: 'type', type: 'seg', label: 'Collider', options: [['box', 'Box'], ['convex', 'Convex mesh'], ['compound', 'Compound'], ['mesh', 'Mesh (non-convex)']], value: 'convex' },
+    { id: 'dyn', type: 'toggle', label: 'Mug has a dynamic Rigidbody (it can be grabbed)', value: true }
+  ],
+  prove: '<p>A convex hull spans the mug\'s opening, so the ball rests on an invisible lid. The non-convex Mesh Collider is correct, but Unity refuses it on a dynamic Rigidbody. A compound of boxes for the walls, bottom and handle keeps the hollow, moves with the body and costs a handful of cheap primitive tests.</p><pre class="eq">convex hull: no dents, ≤ 255 faces in Unity (PhysX cooking limit)\nnon-convex MeshCollider: static or kinematic only\ncompound: child colliders under one Rigidbody\ncost ≈ number of shape pairs tested × cost per pair</pre><p>The relative costs are teaching estimates; profile with the Physics Debugger and Profiler in Unity 6.</p>',
+  teacher: {
+    outcomes: ['Choose a collider for static, kinematic and dynamic objects in a Unity 6 twin.', 'Explain why a convex hull changes behaviour (no cavities).'],
+    misconception: 'The collider is the mesh you see. Physics only knows the collider, and a mismatch shows up as floating or interpenetrating objects.',
+    lab: 'In Unity 6, give a scanned object a box, a convex Mesh Collider and a compound collider; drop 50 spheres on each and compare behaviour and Physics Profiler time.',
+    fits: 'Project2 · Unity 6 twin build', refs: ['unity6physics', 'ericson2005']
+  },
+  build(c) {
+    cy(c, 2.6, 2.6, .05, 0, -.025, 0, { fill: MC.wood, line: COL.dim }, undefined, 48);
+    // the visual mug: lathe walls plus a handle
+    const prof = [V(.0, 0, 0), V(.62, 0, 0), V(.66, .05, 0), V(.66, 1.2, 0), V(.58, 1.2, 0), V(.56, .1, 0), V(0, .1, 0)].map(v => new THREE.Vector2(v.x, v.y));
+    const mugG = new THREE.LatheGeometry(prof, 40);
+    c.ink(mugG, { fill: MC.pot, line: COL.chalk });
+    const handle = new THREE.TorusGeometry(.32, .07, 10, 24, Math.PI).rotateZ(-Math.PI / 2).translate(.66, .62, 0);
+    c.ink(handle, { fill: MC.pot, line: COL.chalk });
+    c.label('visual mesh', V(-1.1, 1.5, 0), 'm');
+    // collider previews, one group per type (wireframes in the digital colour)
+    const G = {};
+    const wire = (geo, g) => { const l = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 1), new THREE.LineBasicMaterial({ color: COL.dig, transparent: true, opacity: .9 })); g.add(l); const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: COL.dig, transparent: true, opacity: .12, depthWrite: false })); g.add(m); };
+    ['box', 'convex', 'compound', 'mesh'].forEach(k => { G[k] = new THREE.Group(); c.root.add(G[k]); });
+    wire(new THREE.BoxGeometry(1.72, 1.24, 1.36).translate(.18, .62, 0), G.box);
+    wire(new THREE.CylinderGeometry(.68, .68, 1.22, 14).translate(0, .61, 0), G.convex);
+    wire(new THREE.BoxGeometry(.36, .7, .26).translate(.86, .62, 0), G.convex);
+    for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const g = new THREE.BoxGeometry(.1, 1.2, .42).translate(.62, .6, 0).rotateY(a); wire(g, G.compound); }
+    wire(new THREE.CylinderGeometry(.6, .6, .1, 12).translate(0, .05, 0), G.compound);
+    wire(new THREE.BoxGeometry(.12, .7, .14).translate(.98, .62, 0), G.compound);
+    wire(mugG.clone(), G.mesh);
+    // the ball that is dropped into the mug again and again
+    const ball = sph(c, .2, 0, 3, 0, { fill: MC.servo, role: 'actuator' });
+    const verdict = c.label('', V(0, 2.4, 1.2), 'd');
+    let y = 3, v = 0, rest = 0;
+    return {
+      update(dt, t, P) {
+        Object.keys(G).forEach(k => { G[k].visible = k === P.type; });
+        const invalid = P.type === 'mesh' && P.dyn;
+        const floor = invalid ? -1 : (P.type === 'box' || P.type === 'convex') ? 1.22 + .2 : .1 + .2;
+        if (rest > 0) { rest -= dt; if (rest <= 0) { y = 3; v = 0; } }
+        else { v -= 9.81 * dt * .6; y += v * dt; if (y <= floor) { y = floor; v = -v * .35; if (Math.abs(v) < .4) { v = 0; rest = 1.6; } } if (y < -.5) { rest = .8; } }
+        ball.position.y = y - 3;
+        verdict.set(invalid ? 'Unity: non-convex MeshCollider on a dynamic Rigidbody is not supported' : P.type === 'box' || P.type === 'convex' ? 'ball rests on an invisible lid' : 'ball falls inside');
+        verdict.el.style.color = invalid ? 'var(--phys)' : '';
+      },
+      readouts(P) {
+        const tri = { box: 12, convex: 64 + 12, compound: 12 * 12, mesh: 40 * 6 * 2 + 24 * 10 * 2 };
+        const cost = { box: '1 (cheapest)', convex: '≈ 3', compound: '≈ 12 (12 boxes)', mesh: '≈ 40, static only' };
+        const ok = !(P.type === 'mesh' && P.dyn);
+        return [['Collider triangles', String(tri[P.type]), 'd'], ['Keeps the hollow', (P.type === 'compound' || P.type === 'mesh') ? 'yes' : 'no'],
+          ['Relative test cost', cost[P.type]], ['Allowed on this Rigidbody', ok ? 'yes' : 'no: make it kinematic or use compound', ok ? 'd' : 'p']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 3 */
+{
+  id: 'rigid', phase: 'Unity 6 physics', title: 'Rigid bodies and the physics step',
+  device: [['tracking', 'Lighthouse tracking']],
+  cam: [0.5, 3.0, 7.4], target: [0, 1.2, 0],
+  body: [
+    'A Rigidbody is moved by the physics engine, not by you. Every FixedUpdate (0.02 s by default, 50 Hz) PhysX integrates gravity and forces, moves each body and only then checks for contacts. Between two steps a fast object jumps v·Δt metres.',
+    'If that jump is longer than a thin wall, discrete collision detection never sees the overlap and the object tunnels through. Continuous collision detection (CCD) sweeps the shape along its path, at a higher cost. Use CCD for fast, small objects such as a thrown controller-held tool (Unity Technologies, 2024).'
+  ],
+  predict: { q: 'A ball flies at 20 m/s at a 5 cm wall. The fixed timestep is the default 0.02 s and collision detection is Discrete. What happens?', options: ['It bounces off', 'It passes straight through', 'Unity raises an error'], answer: 1 },
+  test: 'Change the speed, the fixed timestep and the collision mode. The dots are the ball\'s position at each physics step.',
+  controls: [
+    { id: 'v', type: 'range', label: 'Ball speed v', min: 1, max: 40, step: .5, value: 20, fmt: v => v.toFixed(1) + ' m/s' },
+    { id: 'dt', type: 'seg', label: 'Fixed timestep Δt', options: [['0.02', '0.02 s (50 Hz)'], ['0.01', '0.01 s'], ['0.005', '0.005 s']], value: '0.02' },
+    { id: 'ccd', type: 'seg', label: 'Collision detection', options: [['disc', 'Discrete'], ['ccd', 'Continuous']], value: 'disc' }
+  ],
+  prove: '<p>At 20 m/s and Δt = 0.02 s the ball moves 0.40 m per step, eight times the wall\'s 5 cm thickness plus the ball radius. Some step lands it on the far side without an overlap. Halving Δt halves the jump but doubles the physics cost; CCD catches it at any speed.</p><pre class="eq">step = v · Δt\ntunnels (discrete) if  v · Δt > t_wall + 2r\nv = 20 m/s, Δt = 0.02 s → 0.40 m > 0.05 + 0.10 m\nv_safe < (t_wall + 2r) / Δt = 7.5 m/s\nvₙ₊₁ = vₙ + g·Δt,  xₙ₊₁ = xₙ + vₙ₊₁·Δt   (semi-implicit Euler)</pre><p>The ball has a 5 cm radius. Unity\'s CCD modes (Continuous, Continuous Dynamic, Continuous Speculative) differ in cost and in which pairs they sweep.</p>',
+  teacher: {
+    outcomes: ['Relate the fixed timestep and speed to tunnelling.', 'Choose between discrete and continuous collision detection in Unity 6.'],
+    misconception: 'Physics runs every rendered frame. Rigidbodies move on the fixed timestep; Update and FixedUpdate run at different rates.',
+    lab: 'In Unity 6 fire spheres at a thin wall at increasing speeds, record the speed where they tunnel for Δt = 0.02 and 0.01 s, then repeat with Continuous Dynamic.',
+    fits: 'Project2 · Unity 6 twin build', refs: ['unity6physics', 'ericson2005']
+  },
+  build(c) {
+    bx(c, 8, .06, 2, 0, -.03, 0, { fill: MC.stone, line: COL.dim, fillOpacity: .6 });
+    const WX = 1.2, tw = .05 * 4;                  // the wall, drawn 4× thicker so it is visible
+    bx(c, tw, 2.2, 1.6, WX, 1.1, 0, { fill: MC.wall, role: 'actuator' });
+    c.label('wall · 5 cm', V(WX, 2.5, 0), 'm');
+    const launcher = bx(c, .6, .4, .5, -3.6, 1.2, 0, { fill: MC.black, role: 'controller' }); void launcher;
+    const ball = sph(c, .2, 0, 0, 0, { fill: MC.servo });
+    const dots = []; for (let i = 0; i < 40; i++) { const g = c.glow(COL.dig, .35, V(0, -9, 0)); dots.push(g); }
+    const status = c.label('', V(0, 3.0, 0), 'd');
+    let x = -3.3, vx = 0, hit = false, k = 0, acc = 0, wait = 0, tunneled = false, steps = [];
+    const reset = (v) => { x = -3.3; vx = v; hit = false; tunneled = false; steps = []; k = 0; };
+    return {
+      update(dt, t, P) {
+        const DT = +P.dt, v = P.v;                       // the plate is drawn at 4 units per real metre (5 cm wall = 0.2 units)
+        if (wait > 0) { wait -= dt; if (wait <= 0) reset(v); }
+        else {
+          if (vx === 0) reset(v);
+          acc += dt * .35;                                 // slow motion: the plate runs at 35 % real time
+          while (acc >= DT && wait <= 0) {
+            acc -= DT;
+            const step = vx * DT * 4;                     // distance per physics step, in plate units
+            const nx = x + step, r = .2, wl = WX - tw / 2 - r, wr = WX + tw / 2 + r;
+            if (!hit && vx > 0) {
+              const crosses = x < wl && nx > wr;          // jumped completely over the wall in one step
+              const overlaps = nx >= wl && nx <= wr;
+              if (overlaps || (crosses && P.ccd === 'ccd')) { x = wl; vx = -vx * .5; hit = true; }
+              else { if (crosses) tunneled = true; x = nx; }
+            } else x = nx;
+            steps.push(x); if (steps.length > 40) steps.shift();
+            if (x > 4 || x < -3.8) { wait = 1.2; break; }
+          }
+        }
+        ball.position.set(x, 1.2, 0);
+        dots.forEach((d, i) => { if (i < steps.length) d.position.set(steps[i], 1.2, 0); else d.position.set(0, -9, 0); });
+        status.set(tunneled ? 'tunnelled: no step overlapped the wall' : hit ? (P.ccd === 'ccd' && v * DT > .15 ? 'caught by CCD sweep' : 'contact found, bounce') : 'flying…');
+        status.el.style.color = tunneled ? 'var(--phys)' : '';
+      },
+      readouts(P) {
+        const DT = +P.dt, step = P.v * DT, lim = .15;
+        return [['Distance per physics step', (step * 100).toFixed(1) + ' cm', 'd'], ['Wall + ball diameter', '15 cm'],
+          ['Discrete safe below', (lim / DT).toFixed(1) + ' m/s'], ['Outcome', step > lim && P.ccd === 'disc' ? 'tunnels' : 'collides', step > lim && P.ccd === 'disc' ? 'p' : 'd']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 4 */
+{
+  id: 'bidir', phase: 'Twin data', title: 'Bidirectional twin data',
+  device: [['zed2i', 'ZED 2i'], ['tracking', 'Lighthouse tracking']],
+  cam: [0.6, 3.6, 7.8], target: [0, 1.2, 0],
+  body: [
+    'A digital shadow only listens: sensor data flows from the physical kit to the model. A digital twin also talks back: a command in Unity (pump on, servo to 30°) travels to the ESP32 and changes the real world, and the next telemetry shows whether it worked (Kritzinger et al., 2018).',
+    'Two loops therefore share the network. Telemetry goes upstream on topics like farm/soil, commands go downstream on farm/cmd/pump, and the device answers with an acknowledgement on farm/state/pump. The twin should draw what the device reports, not what it hopes it sent.'
+  ],
+  predict: { q: 'You press "pump ON" in Unity. The network adds 50 ms each way and the soil sensor publishes every 2 s. How long until the twin can show the soil reacting?', options: ['About 0.1 s', 'Up to about 2 s', 'About 10 s'], answer: 1 },
+  test: 'Change the telemetry rate, the network delay and the QoS, and toggle acknowledgements. Orange packets are commands going down, blue packets are telemetry coming up.',
+  controls: [
+    { id: 'rate', type: 'range', label: 'Telemetry rate', min: .2, max: 10, step: .1, value: .5, fmt: v => v.toFixed(1) + ' Hz' },
+    { id: 'lat', type: 'range', label: 'Network delay (one way)', min: 5, max: 400, step: 5, value: 50, fmt: v => v + ' ms' },
+    { id: 'qos', type: 'seg', label: 'MQTT QoS for commands', options: [['0', '0 · at most once'], ['1', '1 · at least once']], value: '1' },
+    { id: 'ack', type: 'toggle', label: 'Device publishes its state (acknowledgement)', value: true }
+  ],
+  prove: '<p>The command itself arrives in about 50 ms, but the twin only learns the result when the next telemetry message comes in. At 0.5 Hz that wait is up to 2 s (1 s on average) plus the trip back. A retained state topic and an acknowledgement let the twin show "pump ON (confirmed)" after one round trip; without it, the twin and the real device can disagree.</p><pre class="eq">t_cmd   = L                      (one way)\nt_ack   = 2L + t_proc            (command + state message)\nt_see   ≤ L + 1/f + L            (wait for the next telemetry)\nmean staleness = 1/(2f) + L\nL = 50 ms, f = 0.5 Hz → t_see ≤ 2.1 s, ack ≈ 0.1 s</pre><p>QoS 0 may lose a command on a flaky Wi-Fi link; QoS 1 resends until the broker acknowledges (OASIS, 2019).</p>',
+  teacher: {
+    outcomes: ['Distinguish digital model, shadow and twin by data direction.', 'Estimate command latency and state staleness for an MQTT twin.'],
+    misconception: 'A sent command means the device did it. Only a state message from the device confirms it.',
+    lab: 'Extend the KS0567 kit sketch to subscribe to farm/cmd/pump and publish farm/state/pump (retained). Log timestamps in Unity 6 and plot command → ack → soil change.',
+    fits: 'Project2 · bidirectional twin (extra credit)', refs: ['kritzinger2018', 'grieves2014', 'mqtt5']
+  },
+  build(c) {
+    // physical side (left): kit board, pump and soil pot; broker (middle); Unity twin (right)
+    bx(c, 2.4, .1, 1.6, -3, .05, 0, { fill: MC.wood });
+    espBoard(c, -3.2, .2, 1.1, .7, 'ESP32 · KS0567');
+    cy(c, .35, .28, .6, -2.3, .4, -.45, { fill: MC.pot, role: 'sensor' }, undefined, 18);
+    cy(c, .32, .32, .05, -2.3, .7, -.45, { fill: MC.soil }, undefined, 18);
+    const pump = cy(c, .16, .16, .4, -2.3, .3, .5, { fill: MC.servo, role: 'actuator' }, undefined, 14);
+    c.label('physical kit', V(-3, 1.4, 0), 'p');
+    cy(c, .55, .55, 1.6, 0, .8, 0, { role: 'network', fill: ROLE_FILL.network }, undefined, 24);
+    c.label('MQTT broker', V(0, 1.95, .8), 'm rn');
+    bx(c, .14, 1.4, 1.9, 3.2, 1.2, 0, { role: 'network', fill: MC.screen }); bx(c, .6, .06, .6, 3.2, .03, 0, { fill: MC.black });
+    c.line([V(3.2, .06, 0), V(3.2, .5, 0)], COL.chalk);
+    c.label('Unity 6 twin', V(3.2, 2.2, 0), 'd');
+    const twinPump = c.glow(COL.dig, 1.2, V(3.05, 1.2, .4));
+    const twinSoil = c.glow(COL.dig, .9, V(3.05, .85, -.4));
+    const realLed = c.glow(COL.phys, .9, V(-2.3, .75, .5));
+    // four curves: telemetry up (kit → broker → twin), commands down (twin → broker → kit)
+    const up1 = new THREE.CatmullRomCurve3([V(-2.2, .7, -.3), V(-1.2, 1.9, -.4), V(-.5, 1.2, -.3)]);
+    const up2 = new THREE.CatmullRomCurve3([V(.5, 1.2, -.3), V(1.8, 2.0, -.4), V(3.0, 1.0, -.4)]);
+    const dn1 = new THREE.CatmullRomCurve3([V(3.0, 1.4, .4), V(1.8, 2.5, .5), V(.5, 1.4, .3)]);
+    const dn2 = new THREE.CatmullRomCurve3([V(-.5, 1.4, .3), V(-1.2, 2.4, .5), V(-2.3, .6, .5)]);
+    [up1, up2].forEach(cv => c.line(cv.getPoints(40), COL.dig, { dashed: true, opacity: .4 }));
+    [dn1, dn2].forEach(cv => c.line(cv.getPoints(40), COL.phys, { dashed: true, opacity: .4 }));
+    const pk = c.packets(260, .3);
+    const stat = c.label('', V(2.2, 2.75, 0), 'm');
+    let time = 0, nextTel = 0, nextCmd = 1.2, pumpReal = false, pumpTwinShown = false, cmdT = -1, ackT = -1, seeT = -1, soil = .3;
+    const legLen = (cv) => cv.getLength();
+    void legLen;
+    return {
+      update(dt, t, P) {
+        time += dt;
+        const L = P.lat / 1000, slow = .35, sp = 1 / Math.max(.15, L / slow + .25);   // packet speed: a longer delay = slower packet
+        // the twin sends a command every 6 s (toggle pump), the kit sends telemetry at P.rate
+        if (time >= nextCmd) {
+          nextCmd = time + 6; const want = !pumpReal; cmdT = time; ackT = -1; seeT = -1;
+          const lost = P.qos === '0' && Math.random() < .25;
+          pk.spawn(dn1, { speed: sp, color: COL.phys, onArrive: () => {
+            pk.spawn(dn2, { speed: sp, color: COL.phys, dropAt: lost ? .5 : null, onArrive: () => {
+              pumpReal = want;
+              if (P.ack) pk.spawn(dn2.points ? new THREE.CatmullRomCurve3(dn2.points.slice().reverse()) : dn2, { speed: sp, color: COL.dig, onArrive: () => pk.spawn(new THREE.CatmullRomCurve3(dn1.points.slice().reverse()), { speed: sp, color: COL.dig, onArrive: () => { pumpTwinShown = pumpReal; ackT = time; } }) });
+            } });
+          } });
+        }
+        if (time >= nextTel) {
+          nextTel = time + 1 / P.rate;
+          const s = soil;
+          pk.spawn(up1, { speed: sp, color: COL.dig, onArrive: () => pk.spawn(up2, { speed: sp, color: COL.dig, onArrive: () => { twinSoil.material.opacity = .3 + .7 * s; if (!P.ack) pumpTwinShown = pumpReal; if (cmdT > 0 && seeT < 0 && pumpReal) seeT = time; } }) });
+        }
+        soil = clamp(soil + (pumpReal ? .12 : -.03) * dt, .1, 1);
+        realLed.material.opacity = pumpReal ? 1 : .15; pump.userData.fill.material.color && pump.userData.fill.material.color.setHex(pumpReal ? MC.water : MC.servo);
+        twinPump.material.opacity = pumpTwinShown ? 1 : .15;
+        stat.set('twin shows pump ' + (pumpTwinShown ? 'ON' : 'OFF') + (pumpTwinShown === pumpReal ? ' ✓ in sync' : ' ✗ out of sync'));
+        stat.el.style.color = pumpTwinShown === pumpReal ? '' : 'var(--phys)';
+      },
+      readouts(P) {
+        const L = P.lat / 1000, f = P.rate;
+        return [['Command reaches the kit', (L * 1000).toFixed(0) + ' ms', 'p'], ['Acknowledged state', P.ack ? ((2 * L + .01) * 1000).toFixed(0) + ' ms' : 'none: twin guesses'],
+          ['Twin sees the effect ≤', (2 * L + 1 / f).toFixed(2) + ' s', 'd'], ['Mean staleness of telemetry', (1 / (2 * f) + L).toFixed(2) + ' s']];
+      }
+    };
+  }
+}
+];
+
+/* links from older lessons to the matching Device Lab pages */
+const DEVICE_LINKS = { twin: [['quest3', 'Meta Quest 3']], lidar: [['pro3', 'Matterport Pro3']], splats: [['x5', 'Insta360 X5']], camera: [['zed2i', 'ZED 2i']], stereo: [['zed2i', 'ZED 2i']], sync: [['tracking', 'Lighthouse tracking'], ['varjo', 'Varjo XR-3 / XR-4']] };
+
 
 /* ==================================================================
    COMPUTER VISION lessons + topic structure
@@ -1880,16 +2223,17 @@ const CV_LESSONS = [
 /* ---------- topics: the book's table of contents ---------- */
 const TOPICS = [
   { id: 'foundations', name: 'Foundations', ids: ['twin'] },
-  { id: 'capture', name: 'Reality capture', ids: ['lidar', 'splats'] },
+  { id: 'capture', name: 'Reality capture', ids: ['lidar', 'splats', 'gsanat'] },
   { id: 'vision', name: 'Computer vision', ids: ['pixels', 'edges', 'camera', 'detect', 'stereo'] },
   { id: 'interop', name: 'Interoperability', ids: ['usd'] },
+  { id: 'unity', name: 'Unity 6 physics', ids: ['colliders', 'rigid'] },
   { id: 'robotics', name: 'Robotics', ids: ['arm', 'ros2'] },
   { id: 'iot', name: 'IoT', ids: ['mqtt', 'farm', 'solar'] },
   { id: 'kit', name: 'Smart farm kit', ids: ['kitpins', 'kitadc', 'kitpump', 'kitclimate', 'kitdoor', 'kitweb'] },
-  { id: 'validation', name: 'Validation', ids: ['sync'] }
+  { id: 'validation', name: 'Twin data & validation', ids: ['bidir', 'sync'] }
 ];
 (function orderByTopic() {
-  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS).forEach(L => { byId[L.id] = L; });
+  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
   LESSONS.length = 0;
   TOPICS.forEach(t => { t.idx = []; t.ids.forEach((id, k) => { const L = byId[id]; L.topic = t; L.inTopic = k; t.idx.push(LESSONS.length); LESSONS.push(L); }); });
 })();
@@ -3705,6 +4049,7 @@ function renderCard(i) {
   const L = LESSONS[i], st = ST[L.id], pr = L.predict;
   cardEl.innerHTML =
     '<p class="eyebrow">Lesson ' + nn(i) + ' · ' + crumb(i) + '</p><h2>' + L.title + '</h2>' +
+    (L.device ? '<p class="devlinks">Device Lab: ' + L.device.map(([id, name]) => '<a href="lab/' + id + '.html">' + name + ' ↗</a>').join(' ') + '</p>' : '') +
     (MODE.free ? '<div class="lede">' + L.body.map(p => '<p>' + p + '</p>').join('') + '</div>' : '') +
     '<section class="step" aria-labelledby="h-pred"><h3 id="h-pred"><b>1</b>Predict</h3><p class="q">' + pr.q + '</p><div class="opts">' +
     pr.options.map((o, k) => '<button type="button" class="opt" data-k="' + k + '" aria-pressed="' + (st.predicted === k) + '"' + (st.predicted !== null ? ' disabled' : '') + '>' + o + '</button>').join('') + '</div>' +
