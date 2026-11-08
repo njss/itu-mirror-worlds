@@ -198,7 +198,7 @@ details.txt p{margin:0;font-size:.9rem;line-height:1.6}
     </div>
     <div class="toc" id="toc" hidden role="region" aria-label="Table of contents"></div>
     <div class="tools">
-      <a class="btn devlab" href="lab/index.html" title="Real devices in 3D, with VR and MR">Device Lab · XR</a>
+      <a class="btn devlab" href="/lab/" title="Real devices in 3D, with VR and MR">Device Lab · XR</a>
       <span class="tally" id="tally">Stamps <b>0</b></span>
       <button class="btn" id="openNotes" type="button">Teacher's notes</button>
     </div>
@@ -4049,7 +4049,7 @@ function renderCard(i) {
   const L = LESSONS[i], st = ST[L.id], pr = L.predict;
   cardEl.innerHTML =
     '<p class="eyebrow">Lesson ' + nn(i) + ' · ' + crumb(i) + '</p><h2>' + L.title + '</h2>' +
-    (L.device ? '<p class="devlinks">Device Lab: ' + L.device.map(([id, name]) => '<a href="lab/' + id + '.html">' + name + ' ↗</a>').join(' ') + '</p>' : '') +
+    (L.device ? '<p class="devlinks">Device Lab: ' + L.device.map(([id, name]) => '<a href="/lab/' + id + '">' + name + ' ↗</a>').join(' ') + '</p>' : '') +
     (MODE.free ? '<div class="lede">' + L.body.map(p => '<p>' + p + '</p>').join('') + '</div>' : '') +
     '<section class="step" aria-labelledby="h-pred"><h3 id="h-pred"><b>1</b>Predict</h3><p class="q">' + pr.q + '</p><div class="opts">' +
     pr.options.map((o, k) => '<button type="button" class="opt" data-k="' + k + '" aria-pressed="' + (st.predicted === k) + '"' + (st.predicted !== null ? ' disabled' : '') + '>' + o + '</button>').join('') + '</div>' +
