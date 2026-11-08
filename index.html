@@ -6,7 +6,9 @@
 <meta name="description" content="Mirror Worlds: an interactive 3D book about digital twins, from reality capture and computer vision to robotics, IoT and the smart farm kit. RITA Lab, IT:U Linz.">
 <meta name="theme-color" content="#0D0B10">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Mirror Worlds</title>
+<title>IT:U - RITA Lab - Mirror Worlds Virtual Book</title>
+<meta name="author" content="Dr. Nelson J. S. Silva">
+<meta name="description" content="IT:U - RITA Lab - Mirror Worlds Virtual Book, created by Dr. Nelson J. S. Silva. Interactive 3D lessons on digital twins.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
@@ -64,6 +66,7 @@ body{background:var(--desk);color:var(--bar-text);font-family:var(--f-body);over
 .tname{font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--glow-p);padding:0 6px 0 8px;white-space:nowrap}
 .toc{position:absolute;top:100%;left:max(16px, env(safe-area-inset-left, 0px));right:max(16px, env(safe-area-inset-right, 0px));max-width:980px;z-index:12;
   background:var(--paper);color:var(--ink);border-radius:14px;padding:18px 20px 20px;box-shadow:0 24px 60px -20px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.06);max-height:min(72vh, 640px);overflow-y:auto}
+.toc .credit{margin:0 0 6px;font:600 .78rem/1.35 var(--f-body);color:var(--ink)}
 .toc-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));gap:16px 22px;margin-top:12px}
 .toc h4{font:600 .7rem var(--f-mono);letter-spacing:.12em;text-transform:uppercase;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--rule);color:var(--phys)}
 .toc button{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;background:none;border:0;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink);font:inherit}
@@ -186,9 +189,9 @@ details.txt p{margin:0;font-size:.9rem;line-height:1.6}
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand">
+    <div class="brand" title="IT:U - RITA Lab - Mirror Worlds Virtual Book, created by Dr. Nelson J. S. Silva">
       <h1><span class="m">Mirror</span> <span class="w">Worlds</span></h1>
-      <p>A 3D book about digital twins</p>
+      <p>IT:U · RITA Lab · Virtual Book</p>
     </div>
     <nav class="chapters" id="chapters" aria-label="Lessons"></nav>
     <div class="views modes" id="modes" role="group" aria-label="Display mode">
@@ -5360,7 +5363,7 @@ function renderChapters() {
   const tp = cur >= 0 ? LESSONS[cur].topic : TOPICS[0];
   const btn = (i, cls) => '<button type="button" data-i="' + i + '" title="' + LESSONS[i].title + '" aria-label="Lesson ' + (i + 1) + ': ' + LESSONS[i].title + '"' + (i === cur ? ' aria-current="true"' : '') + (stamps[LESSONS[i].id] ? ' class="done"' : '') + '>' + nn(i) + '</button>';
   chapEl.innerHTML = '<button type="button" class="tocbtn" id="tocbtn" aria-expanded="' + String(!tocEl.hidden) + '" aria-controls="toc">Contents</button><span class="tname">' + tp.name + '</span>' + tp.idx.map(i => btn(i)).join('');
-  tocEl.innerHTML = '<p class="eyebrow">Contents · ' + TOPICS.length + ' topics · ' + LESSONS.length + ' lessons</p><div class="toc-grid">' + TOPICS.map(t =>
+  tocEl.innerHTML = '<p class="credit">IT:U - RITA Lab - Mirror Worlds Virtual Book · created by Dr. Nelson J. S. Silva</p><p class="eyebrow">Contents · ' + TOPICS.length + ' topics · ' + LESSONS.length + ' lessons</p><div class="toc-grid">' + TOPICS.map(t =>
     '<section><h4>' + t.name + '</h4>' + t.idx.map(i => '<button type="button" data-i="' + i + '"' + (i === cur ? ' aria-current="true"' : '') + '><span class="n">' + nn(i) + '</span><span class="t">' + LESSONS[i].title + '</span>' + (stamps[LESSONS[i].id] ? '<span class="st" aria-label="stamp earned"></span>' : '') + '</button>').join('') + '</section>').join('') + '</div>';
   tallyEl.innerHTML = 'Stamps <b>' + LESSONS.filter(L => stamps[L.id]).length + '</b>/' + LESSONS.length;
 }

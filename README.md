@@ -1,4 +1,6 @@
-# Mirror Worlds
+# IT:U - RITA Lab - Mirror Worlds Virtual Book
+
+Created by Dr. Nelson J. S. Silva.
 
 An interactive 3D book about digital twins, built for the Digital Twins lectures at the RITA Lab – Extended Reality & Digital Twins, IT:U (Interdisciplinary Transformation University Austria), Linz.
 

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Insta360 X5 · Device Lab</title>
+<title>Insta360 X5 · Device Lab · IT:U - RITA Lab - Mirror Worlds Virtual Book</title>
+<meta name="author" content="Dr. Nelson J. S. Silva">
 <meta name="description" content="How a dual fisheye 360 camera works: two 1/1.28 inch sensors, stitching overlap, and pixels per degree for Gaussian splatting.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1602,8 +1603,8 @@ export function addXR(lab, opt = {}) {
   const sliders = Object.values(lab.controls).slice(0, 2)
   const buttons = []          // {x,y,w,h,label,act(),on()}
   const mk = (x, y, w, h, label, act, on = () => false) => buttons.push({ x, y, w, h, label, act, on })
-  const modes = [['explode', 'Explode'], ['cut', 'Cut away'], ['xray', 'X-ray'], ['slow', 'Slow']]
-  modes.forEach(([k, t], i) => mk(36 + i * 240, 392, 222, 70, t, () => lab.toggle(k), () => lab.target[k] > 0.5))
+  const modes = [['explode', 'Explode'], ['cut', 'Cut away'], ['xray', 'X-ray'], ['slow', 'Slow'], ['labels', 'Labels']]
+  modes.forEach(([k, t], i) => mk(36 + i * 192, 392, 178, 70, t, () => lab.toggle(k), () => lab.target[k] > 0.5))
   if (lab._break) mk(36, 480, 462, 70, lab._break.label ?? 'Break it', () => lab.toggle('break'), () => lab.broken)
   mk(516, 480, 222, 70, 'Reset pose', () => placeDevice())
   mk(756, 480, 222, 70, 'Exit XR', () => exit())
@@ -1655,6 +1656,78 @@ export function addXR(lab, opt = {}) {
     g.fillStyle = '#8a8f96'; g.font = '400 20px Inter, sans-serif'
     g.fillText(`shown at ${st.mag.toFixed(1)}× real size · ${st.mode === 'immersive-ar' ? 'mixed reality (passthrough)' : 'virtual reality'}`, 36, PH - 18)
     tex.needsUpdate = true
+  }
+
+  // ---------------------------------------------------------------- 2b. labels in XR
+  // The kit's labels are HTML on top of the page, which a headset cannot show. In XR each label
+  // is mirrored as a camera-facing sprite with a leader line, placed beside the device on the
+  // side it is on (as seen from the head) and spread so labels never overlap.
+  const xrLabs = new THREE.Group(); xrLabs.visible = false; xrLabs.renderOrder = 11; scene.add(xrLabs)
+  let lab3 = null
+  const LH = 0.04                                    // label height in metres (readable at arm's length)
+  function makeLab3(L) {
+    const c = document.createElement('canvas'); c.width = 768; c.height = 96
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, toneMapped: false }))
+    sp.renderOrder = 12; xrLabs.add(sp)
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()])
+    const ln = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x16181b, transparent: true, opacity: 0.6, depthTest: false }))
+    ln.renderOrder = 12; xrLabs.add(ln)
+    return { L, c, t, sp, ln, text: '', anchor: new THREE.Vector3(), side: 1, y: 0 }
+  }
+  function drawLab3(o, text) {
+    const g = o.c.getContext('2d'), H = o.c.height
+    g.font = '500 44px Inter, sans-serif'
+    const w = Math.min(o.c.width, Math.ceil(g.measureText(text).width) + 48)
+    g.clearRect(0, 0, o.c.width, H)
+    g.fillStyle = 'rgba(255,255,255,0.94)'; roundRect(g, 0, 8, w, H - 16, 22); g.fill()
+    g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 3; g.stroke()
+    g.fillStyle = '#16181b'; g.fillText(text, 24, H / 2 + 15)
+    o.t.needsUpdate = true; o.text = text
+    o.sp.scale.set(LH * o.c.width / H, LH, 1)
+    o.sp.center.set(o.side > 0 ? 24 / o.c.width : (w - 24) / o.c.width, 0.5)   // text starts at the leader line
+  }
+  const _c = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _v = new THREE.Vector3()
+  function updateXRLabels() {
+    const on = lab.state.labels ?? 0
+    xrLabs.visible = on > 0.01
+    if (!xrLabs.visible) return
+    if (!lab3) lab3 = lab.labels.map(makeLab3)
+    const cam = R.xr.isPresenting ? R.xr.getCamera() : lab.camera
+    cam.updateMatrixWorld()
+    _r.setFromMatrixColumn(cam.matrixWorld, 0).normalize()        // head right
+    _u.setFromMatrixColumn(cam.matrixWorld, 1).normalize()        // head up
+    lab.machine.updateWorldMatrix(true, false); _c.setFromMatrixPosition(lab.machine.matrixWorld)
+    for (const o of lab3) {
+      o.L.obj.updateWorldMatrix(true, false)
+      o.anchor.copy(o.L.at).applyMatrix4(o.L.obj.matrixWorld)
+      o.visible = o.L.obj.visible !== false
+      const side = o.L.side === 'left' ? -1 : o.L.side === 'right' ? 1 : (_v.copy(o.anchor).sub(_c).dot(_r) < 0 ? -1 : 1)
+      if (side !== o.side) { o.side = side; o.text = '' }
+      o.y = _v.copy(o.anchor).sub(_c).dot(_u)
+      const val = typeof o.L.value === 'function' ? o.L.value() : (o.L.small?.textContent ?? '')
+      const name = (o.L.el.firstChild?.textContent ?? '').trim()
+      const text = val ? name + '  ' + val : name
+      if (text !== o.text) drawLab3(o, text)
+    }
+    // spread per side along head-up so labels never overlap, then place them beside the device
+    for (const side of [-1, 1]) {
+      const list = lab3.filter((o) => o.side === side && o.visible).sort((a, b) => b.y - a.y)
+      let last = 1e9
+      for (const o of list) {
+        const y = Math.min(o.y, last - LH * 1.35); last = y
+        const x = Math.abs(_v.copy(o.anchor).sub(_c).dot(_r)) + 0.08          // 8 cm beside its own anchor
+        const p = _v.copy(_c).addScaledVector(_r, side * x).addScaledVector(_u, y)
+        o.sp.position.copy(p)
+        o.ln.geometry.attributes.position.setXYZ(0, o.anchor.x, o.anchor.y, o.anchor.z)
+        o.ln.geometry.attributes.position.setXYZ(1, p.x, p.y, p.z)
+        o.ln.geometry.attributes.position.needsUpdate = true
+      }
+    }
+    for (const o of lab3) {
+      o.sp.visible = o.ln.visible = o.visible
+      o.sp.material.opacity = on; o.ln.material.opacity = 0.6 * on
+    }
   }
 
   // ---------------------------------------------------------------- 3. controllers
@@ -1764,6 +1837,7 @@ export function addXR(lab, opt = {}) {
         const n = partName(c); if (n) pointing = n
       }
       tPanel += dt; if (tPanel > 0.1) { tPanel = 0; drawPanel() }
+      updateXRLabels()
       R.render(scene, lab.camera)
     })
   }
@@ -1776,7 +1850,7 @@ export function addXR(lab, opt = {}) {
     root.position.copy(s.pos); root.quaternion.copy(s.quat); root.scale.copy(s.scale)
     scene.background = s.bg; lab.floor.position.y = s.floorY; lab.floor.visible = s.floorVis
     lab._contact.plane.visible = s.contact; R.setClearAlpha(s.clearA); lab.key.castShadow = s.shadow
-    panel.visible = false
+    panel.visible = false; xrLabs.visible = false
     lab.controlsOrbit.enabled = true
     lab.setView({})
     document.documentElement.classList.remove('xr-on')
@@ -1784,8 +1858,38 @@ export function addXR(lab, opt = {}) {
     // the kit's own requestAnimationFrame loop resumes by itself after the session ends
   }
   // the kit loop must not draw through the composer while the XR loop owns the frame
-  const kitRender = lab.render.bind(lab)
-  lab.render = (dt) => { if (!st.on) kitRender(dt) }
+  let kitRender = lab.render.bind(lab)
+  // Black-screen watchdog. On some desktop GPUs/browsers (seen: Chrome + Intel UHD with the
+  // Immersive Web Emulator extension) the kit's large multisampled half-float render targets come
+  // back black. Two seconds after start we sample the frame edges, which always show the light
+  // studio; if they are black we first drop MSAA on the composer targets, then, if still black,
+  // render the scene directly without post-processing.
+  let frames = 0, fix = 0
+  lab.render = (dt) => {
+    if (st.on) return
+    kitRender(dt)
+    if (fix < 3 && ++frames >= 120 && frames % 30 === 0) checkBlack()
+  }
+  function checkBlack() {
+    const gl = R.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(4)
+    R.setRenderTarget(null)
+    let dark = 0
+    for (const [x, y] of [[0.03, 0.5], [0.03, 0.97], [0.5, 0.97], [0.5, 0.03]]) {
+      gl.readPixels(Math.floor(x * w), Math.floor(y * h), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px)
+      if (px[0] + px[1] + px[2] < 40) dark++
+    }
+    if (dark < 3) { fix = 3; return }                           // looks right: stop checking
+    const C = lab.composer
+    if (fix === 0 && C) {
+      for (const rt of [C.renderTarget1, C.renderTarget2]) { rt.samples = 0; rt.dispose() }
+      console.warn('[Device Lab] black frame: multisampling turned off for post-processing')
+      fix = 1
+    } else {
+      kitRender = () => { R.setRenderTarget(null); R.render(scene, lab.camera) }
+      console.warn('[Device Lab] black frame: post-processing turned off')
+      fix = 3
+    }
+  }
 
   // ---------------------------------------------------------------- 5. gamepad polling
   // Quest Touch: buttons[0]=trigger [1]=squeeze [3]=stick press [4]=A/X [5]=B/Y; axes[2],[3]=stick
@@ -1896,14 +2000,14 @@ export function chrome(id) {
   const bar = document.createElement('header'); bar.className = 'dl-top'
   const groups = [...new Set(DEVICES.map((d) => d.group))]
   bar.innerHTML = `
-    <a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>Device Lab</small></a>
+    <a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>IT:U · RITA Lab · Device Lab</small></a>
     <nav class="dl-chap" aria-label="Devices">
       <button type="button" class="dl-tocbtn" aria-expanded="false">Contents</button>
       <span class="dl-tname">${D.group}</span>
       ${DEVICES.map((d, k) => `<a href="/lab/${d.id}" title="${d.name}" ${k === i ? 'aria-current="true"' : ''}>${String(k + 1).padStart(2, '0')}</a>`).join('')}
     </nav>
     <div class="dl-tools"><a class="dl-btn" href="/">Book</a><span class="dl-xr"></span></div>
-    <div class="dl-toc" hidden><div class="dl-toc-grid">${groups.map((g) => `<div><h4>${g}</h4>${DEVICES.map((d, k) => d.group !== g ? '' : `<a href="/lab/${d.id}" ${k === i ? 'aria-current="true"' : ''}><span class="n">${String(k + 1).padStart(2, '0')}</span><span class="t">${d.name}</span></a>`).join('')}</div>`).join('')}
+    <div class="dl-toc" hidden><p class="dl-credit">IT:U - RITA Lab - Mirror Worlds Virtual Book · Device Lab · created by Dr. Nelson J. S. Silva</p><div class="dl-toc-grid">${groups.map((g) => `<div><h4>${g}</h4>${DEVICES.map((d, k) => d.group !== g ? '' : `<a href="/lab/${d.id}" ${k === i ? 'aria-current="true"' : ''}><span class="n">${String(k + 1).padStart(2, '0')}</span><span class="t">${d.name}</span></a>`).join('')}</div>`).join('')}
       <div><h4>Overview</h4><a href="/lab/"><span class="n">··</span><span class="t">All devices</span></a><a href="/"><span class="n">↗</span><span class="t">Back to the book</span></a></div></div></div>`
   document.body.appendChild(bar)
   const tb = bar.querySelector('.dl-tocbtn'), toc = bar.querySelector('.dl-toc')
@@ -1970,6 +2074,7 @@ const SHELL_CSS = `
 .dl-tools{margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto;white-space:nowrap}
 .dl-btn{color:var(--ink);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
 .dl-toc{position:absolute;top:100%;left:16px;right:16px;max-width:900px;margin-top:8px;background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 24px 60px -20px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.06)}
+.dl-credit{margin:0 0 12px;font:600 13px/1.35 Inter,system-ui,sans-serif;color:var(--ink)}
 .dl-toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px 22px}
 .dl-toc h4{font:600 11px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--phys);margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .dl-toc a{display:flex;gap:10px;align-items:baseline;padding:7px 8px;border-radius:8px;color:var(--ink);text-decoration:none}

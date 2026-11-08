@@ -2,8 +2,8 @@
 # Usage: python3 build.py [name ...]   -> writes ../itu-mirror-worlds/lab/<name>.html
 import sys, os, re, json
 HERE = os.path.dirname(os.path.abspath(__file__))
-KIT = os.environ.get('LAB_KIT', 'machine-skill/kit/lab-kit.js')   # clone github.com/AirsupHQ/machine-skill next to this file
-OUT = os.path.join(HERE, '..', 'lab')   # pages are written next to src/
+KIT = '/tmp/claude-0/-home-claude/f2f2c1b7-957b-5dfc-b72b-495ed5ff87a3/scratchpad/mskill/src/kit/lab-kit.js'
+OUT = '/home/claude/itu-mirror-worlds/lab'
 os.makedirs(OUT, exist_ok=True)
 kit = open(KIT).read().replace('</script', '<\\/script')
 xr = open(os.path.join(HERE, 'xr.js')).read().replace('</script', '<\\/script')
@@ -14,7 +14,7 @@ HEAD = '''<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title} · Device Lab</title>
+<title>{title} · Device Lab · IT:U - RITA Lab - Mirror Worlds Virtual Book</title>\n<meta name="author" content="Dr. Nelson J. S. Silva">
 <meta name="description" content="{desc}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
