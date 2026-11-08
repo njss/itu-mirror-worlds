@@ -1861,14 +1861,14 @@ export function addXR(lab, opt = {}) {
   let kitRender = lab.render.bind(lab)
   // Black-screen watchdog. On some desktop GPUs/browsers (seen: Chrome + Intel UHD with the
   // Immersive Web Emulator extension) the kit's large multisampled half-float render targets come
-  // back black. Two seconds after start we sample the frame edges, which always show the light
+  // back black. Once a second for the first ~40 s we sample the frame edges, which always show the light
   // studio; if they are black we first drop MSAA on the composer targets, then, if still black,
   // render the scene directly without post-processing.
   let frames = 0, fix = 0
   lab.render = (dt) => {
     if (st.on) return
     kitRender(dt)
-    if (fix < 3 && ++frames >= 120 && frames % 30 === 0) checkBlack()
+    if (fix < 3 && ++frames % 60 === 0 && frames <= 2400) checkBlack()    // once a second for ~40 s
   }
   function checkBlack() {
     const gl = R.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(4)
@@ -1878,7 +1878,7 @@ export function addXR(lab, opt = {}) {
       gl.readPixels(Math.floor(x * w), Math.floor(y * h), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px)
       if (px[0] + px[1] + px[2] < 40) dark++
     }
-    if (dark < 3) { fix = 3; return }                           // looks right: stop checking
+    if (dark < 3) return                                        // looks right (the intro can differ, so keep checking)
     const C = lab.composer
     if (fix === 0 && C) {
       for (const rt of [C.renderTarget1, C.renderTarget2]) { rt.samples = 0; rt.dispose() }
