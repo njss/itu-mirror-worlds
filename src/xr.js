@@ -475,7 +475,7 @@ export function chrome(id) {
   const bar = document.createElement('header'); bar.className = 'dl-top'
   const groups = [...new Set(DEVICES.map((d) => d.group))]
   bar.innerHTML = `
-    <a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>IT:U · RITA Lab · Device Lab</small></a>
+    <a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>IT:U · RITA Lab · Device Lab</small><em>Created by Dr. Nelson Silva</em></a>
     <nav class="dl-chap" aria-label="Devices">
       <button type="button" class="dl-tocbtn" aria-expanded="false">Contents</button>
       <span class="dl-tname">${D.group}</span>
@@ -538,6 +538,7 @@ const SHELL_CSS = `
   background:rgba(255,255,255,.86);-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line);font:500 12px Inter,system-ui,sans-serif}
 .dl-brand{display:flex;flex-direction:column;text-decoration:none;color:var(--ink);line-height:1;white-space:nowrap;flex:0 0 auto}
 .dl-brand b{font:400 26px/1 "Instrument Serif",Georgia,serif;letter-spacing:-.01em} .dl-brand .m{color:var(--phys)} .dl-brand .w{color:var(--dig);font-style:italic}
+.dl-brand em{font:500 11px/1.2 Inter,system-ui,sans-serif;font-style:normal;color:var(--ink);margin-top:3px}
 .dl-brand small{font:500 10px "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:4px}
 .dl-chap{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1 1 auto}
 .dl-chap > *{flex:0 0 auto}
