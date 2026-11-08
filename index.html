@@ -2574,7 +2574,7 @@ const USD_LESSONS = [
         '    def Mesh "Ground" { … 10 × 10 quad … }',
         '    def Cube "Cube"', '    {', '        double size = 0.5', `        double3 xformOp:translate = (0, ${P.h.toFixed(2)}, 0)`, '        uniform token[] xformOpOrder = ["xformOp:translate"]',
         '        rel material:binding = </World/Looks/Orange>', '    }',
-        '    def Scope "Looks" { def Material "Orange" { … UsdPreviewSurface … } }',
+        '    def "Looks" { def Material "Orange" { … UsdPreviewSurface … } }',
         '    def DistantLight "Sun" { float inputs:intensity = 3000 }',
         '    def Camera "Camera" { double3 xformOp:translate = (3, 2, 5) }', '}'
       ];
