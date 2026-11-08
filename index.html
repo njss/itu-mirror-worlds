@@ -1840,6 +1840,591 @@ const XR_LESSONS = [
 /* links from older lessons to the matching Device Lab pages */
 const DEVICE_LINKS = { twin: [['quest3', 'Meta Quest 3']], lidar: [['pro3', 'Matterport Pro3']], splats: [['x5', 'Insta360 X5']], camera: [['zed2i', 'ZED 2i']], stereo: [['zed2i', 'ZED 2i']], sync: [['tracking', 'Lighthouse tracking'], ['varjo', 'Varjo XR-3 / XR-4']] };
 
+/* ==================================================================
+   ADAPTIVE TWIN and SMART-HOME KIT LESSONS
+   The chain behind Project2's mandatory requirements 4-6:
+     ecg    ECG: from R-peaks to heart rate and HRV        (DigiTech2 L3-4)
+     lsl    LSL to MQTT: streams, timestamps and clocks     (L10)
+     ilog   Logging interaction and behaviour               (L15)
+     adapt  Adaptation rules that do not flicker            (L16, L19)
+     exper  Testing the adaptation: a small user study      (L2, L16-17)
+   and the Keyestudio KS5009 smart-home kit (Home Assistance groups):
+     homesense  Sensing a living space
+     homeact    Doors, windows and safe actuation
+     hometwin   The Home Assistance twin: retained state and comfort
+   Builds use the rich-plate helpers (bx, cy, sph, espBoard, dynLine);
+   they run when a lesson is opened.
+================================================================== */
+Object.assign(REFS, {
+  taskforce1996: 'Task Force of the European Society of Cardiology and the North American Society of Pacing and Electrophysiology. (1996). Heart rate variability: Standards of measurement, physiological interpretation and clinical use. <i>Circulation, 93</i>(5), 1043–1065. https://doi.org/10.1161/01.CIR.93.5.1043',
+  pan1985: 'Pan, J., &amp; Tompkins, W. J. (1985). A real-time QRS detection algorithm. <i>IEEE Transactions on Biomedical Engineering, BME-32</i>(3), 230–236. https://doi.org/10.1109/TBME.1985.325532',
+  plux2020ecg: 'PLUX Wireless Biosignals. (2020). <i>Electrocardiography (ECG) sensor datasheet</i>. https://www.pluxbiosignals.com/products/electrocardiography-ecg-sensor-1',
+  kothe2024lsl: 'Kothe, C., Shirazi, S. Y., Stenner, T., Medine, D., Boulay, C., Grivich, M. I., Artoni, F., Mullen, T., Delorme, A., &amp; Makeig, S. (2025). The Lab Streaming Layer for synchronized multimodal recording. <i>Imaging Neuroscience, 3</i>. https://doi.org/10.1162/IMAG.a.136',
+  cohen1988: 'Cohen, J. (1988). <i>Statistical power analysis for the behavioral sciences</i> (2nd ed.). Lawrence Erlbaum Associates.',
+  field2013: 'Field, A. (2013). <i>Discovering statistics using IBM SPSS Statistics</i> (4th ed.). SAGE.',
+  eu2016gdpr: 'European Parliament and Council of the European Union. (2016). Regulation (EU) 2016/679 (General Data Protection Regulation). <i>Official Journal of the European Union, L 119</i>, 1–88. https://eur-lex.europa.eu/eli/reg/2016/679/oj',
+  astrom2008: 'Åström, K. J., &amp; Murray, R. M. (2008). <i>Feedback systems: An introduction for scientists and engineers</i>. Princeton University Press.',
+  ks5009: 'Keyestudio. (n.d.). <i>KS5009 IoT smart home kit for ESP32</i> [Documentation]. https://docs.keyestudio.com/projects/KS5009/en/latest/docs/index.html',
+  slater2016: 'Slater, M., &amp; Sanchez-Vives, M. V. (2016). Enhancing our lives with immersive virtual reality. <i>Frontiers in Robotics and AI, 3</i>, Article 74. https://doi.org/10.3389/frobt.2016.00074'
+});
+
+/* ---------- shared helpers for these plates ---------- */
+// A white "scope" board standing on the plate. map(u, v) puts a point on it: u = 0..1 across, v = -1..1 up.
+function scope(c, x, y, z, w, h, label) {
+  bx(c, w + .2, h + .2, .08, x, y, z - .05, { fill: MC.white, line: COL.dim });
+  bx(c, .12, y - h / 2, .12, x - w / 2, (y - h / 2) / 2, z - .05, { fill: MC.metal });
+  bx(c, .12, y - h / 2, .12, x + w / 2, (y - h / 2) / 2, z - .05, { fill: MC.metal });
+  c.line([V(x - w / 2, y, z + .01), V(x + w / 2, y, z + .01)], COL.dim, { dashed: true, opacity: .35 });
+  if (label) c.label(label, V(x - w / 2 + .1, y + h / 2 + .3, z), 'm');
+  return (u, v) => V(x - w / 2 + u * w, y + v * h / 2, z + .02);
+}
+// Synthetic ECG (lead II-like) as a sum of Gaussian waves around each beat, in mV
+const ECGW = [[-.2, .025, .15], [-.03, .01, -.1], [0, .011, 1.2], [.03, .01, -.25], [.26, .05, .32]];
+function ecgBeats(seed, hr, rmssd, T) {
+  const r = mulberry32(seed), out = []; let t = .4;
+  const sd = rmssd / 1000 / Math.SQRT2;
+  while (t < T) { out.push(t); const g = Math.sqrt(-2 * Math.log(r() + 1e-9)) * Math.cos(2 * Math.PI * r()); t += Math.max(.3, 60 / hr + g * sd); }
+  return out;
+}
+function ecgAt(t, beats, k0) {
+  let v = 0;
+  for (let k = Math.max(0, k0 - 1); k < Math.min(beats.length, k0 + 2); k++) for (const [o, w, a] of ECGW) { const d = t - beats[k] - o; v += a * Math.exp(-d * d / (2 * w * w)); }
+  return v;
+}
+const rmssdOf = (ts) => { if (ts.length < 3) return 0; let s = 0; for (let i = 2; i < ts.length; i++) { const d = (ts[i] - ts[i - 1]) - (ts[i - 1] - ts[i - 2]); s += d * d; } return 1000 * Math.sqrt(s / (ts.length - 2)); };
+// A simple person: torso and head, facing +x by default
+function person(c, x, z, col = MC.shirt) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); c.root.add(g);
+  c.ink(new THREE.CylinderGeometry(.28, .32, 1.1, 16).translate(0, .95, 0), { fill: col }, g);
+  c.ink(new THREE.SphereGeometry(.24, 16, 12).translate(0, 1.75, 0), { fill: MC.skin }, g);
+  c.ink(new THREE.CylinderGeometry(.09, .09, .45, 8).translate(0, .22, 0), { fill: MC.black }, g);
+  return g;
+}
+
+const ADAPT_LESSONS = [
+/* ---------------------------------------------------------------- 1 */
+{
+  id: 'ecg', phase: 'Adaptive twin', title: 'ECG: from R-peaks to heart rate and HRV',
+  device: [['plux', 'biosignalsplux ECG'], ['quest3', 'Meta Quest 3']],
+  cam: [0.4, 3.6, 9.2], target: [0, 1.9, 0],
+  body: [
+    'An ECG sensor measures the heart\'s electrical activity between electrodes on the chest. The PLUX ECG sensor amplifies about ±1.5 mV by 1000 and passes 0.5–100 Hz; the hub samples it at up to a few thousand samples per second with 16 bits (PLUX Wireless Biosignals, 2020).',
+    'For the twin you rarely need the waveform itself. You need two numbers: heart rate (HR) from the time between R-peaks, and heart-rate variability (HRV), for example RMSSD, the typical change from one beat interval to the next. A detector finds each R-peak above a threshold, then waits a refractory period before looking for the next (Pan &amp; Tompkins, 1985).'
+  ],
+  predict: { q: 'Resting RMSSD is often 20–50 ms. Which sampling rate is the lowest that still times R-peaks well enough for HRV?', options: ['50 Hz (20 ms steps)', 'About 250 Hz (4 ms steps)', 'At least 10,000 Hz'], answer: 1 },
+  test: 'Change the sampling rate, the noise and the detection threshold. Orange dots are the samples; blue rings are detected R-peaks.',
+  controls: [
+    { id: 'fs', type: 'seg', label: 'Sampling rate', options: [['50', '50 Hz'], ['100', '100 Hz'], ['250', '250 Hz'], ['1000', '1000 Hz']], value: '250' },
+    { id: 'noise', type: 'range', label: 'Noise (movement, mains)', min: 0, max: .5, step: .01, value: .08, fmt: v => '± ' + v.toFixed(2) + ' mV' },
+    { id: 'thr', type: 'range', label: 'R-peak threshold', min: .2, max: 1.3, step: .01, value: .6, fmt: v => v.toFixed(2) + ' mV' },
+    { id: 'stress', type: 'toggle', label: 'Stressful task (HR up, HRV down)', value: false }
+  ],
+  prove: '<p>An R-peak can only be timed to the nearest sample, so each beat interval carries an error of up to one sample period: 20 ms at 50 Hz, which is as large as the variability you want to measure. At 250 Hz the step is 4 ms, which is why HRV guidelines ask for at least 250 Hz (Task Force, 1996). Heart rate alone is far less demanding.</p><pre class="eq">HR    = 60 / mean(RRᵢ)                 bpm\nRMSSD = √( mean( (RRᵢ₊₁ − RRᵢ)² ) )      ms\ntiming step = 1 / fs        50 Hz → 20 ms   250 Hz → 4 ms\nECG(mV) = (ADC / 2ⁿ − ½) · VCC / G · 1000    VCC = 3 V, G = 1000, n = 16</pre><p>The signal is synthetic (Gaussian P, Q, R, S and T waves) and the detector is a plain threshold with a 250 ms refractory period.</p>',
+  teacher: {
+    outcomes: ['Compute HR and RMSSD from R-peak times.', 'Choose a sampling rate and threshold for ECG in a VR twin.'],
+    misconception: 'More samples always means better heart rate. HR is fine at low rates; it is HRV that needs precise beat timing.',
+    lab: 'Record 5 minutes of ECG with the biosignalsplux at 1000 Hz, downsample to 250, 100 and 50 Hz in Python, and compare HR and RMSSD from each.',
+    fits: 'DigiTech2 Unit 2 · Sensing &amp; Data Analysis (L3–4)', refs: ['plux2020ecg', 'pan1985', 'taskforce1996']
+  },
+  build(c) {
+    const map = scope(c, 0, 2.2, -.6, 8, 2.6, 'ECG · last 4 s');
+    // the sensor side: hub, three electrodes on a chest outline
+    bx(c, .85, .1, .54, -3.2, .05, 1.7, { fill: MC.black, role: 'sensor' }); c.label('hub · 16 bit', V(-3.2, .4, 2.2), 'm rs');
+    const chest = person(c, -1.6, 1.8, MC.shirt); chest.rotation.y = -Math.PI / 2;
+    [[-.12, 1.2], [.12, 1.2], [0, .85]].forEach(([dx, y], k) => { const p = V(-1.6 + dx, y, 2.12); c.glow(k === 2 ? COL.dim : COL.phys, .3, p); c.line([p, V(-3.2, .1, 1.7)], COL.dim, { opacity: .5 }); });
+    c.label('electrodes (bipolar + reference)', V(-1.6, 1.75, 2.6), 'm');
+    const N = 1200, trace = dynLine(c, N, COL.chalk, { opacity: .85 });
+    // sample dots: one glowing point per ECG sample in the visible window (capped at 220)
+    const DOTS = 220, dg = new THREE.BufferGeometry(), da = new Float32Array(DOTS * 3).fill(-9);
+    dg.setAttribute('position', new THREE.BufferAttribute(da, 3));
+    const dpts = new THREE.Points(dg, new THREE.PointsMaterial({ color: COL.phys, size: .13 * MODE.dot, map: GLOW, transparent: true, depthWrite: false, blending: MODE.blend }));
+    dpts.frustumCulled = false; c.root.add(dpts);
+    const peaks = [];
+    for (let i = 0; i < 12; i++) { const g = c.glow(COL.dig, .38, V(0, -9, 0)); peaks.push(g); }
+    const thrLine = c.line([V(-4, 0, -.55), V(4, 0, -.55)], COL.dig, { dashed: true, opacity: .8 });
+    let key = '', res = null, t0 = 0;
+    function compute(P) {
+      const hr = P.stress ? 98 : 68, rm = P.stress ? 18 : 42, fs = +P.fs, T = 40;
+      const beats = ecgBeats(7, hr, rm, T), rnd = mulberry32(3);
+      const n = Math.floor(T * fs), s = new Float32Array(n); let k = 0;
+      for (let i = 0; i < n; i++) { const t = i / fs; while (k < beats.length - 1 && beats[k + 1] < t) k++; s[i] = ecgAt(t, beats, k) + (rnd() * 2 - 1) * P.noise + .08 * Math.sin(2 * Math.PI * .25 * t); }
+      // threshold detector with a 250 ms refractory period
+      const det = []; let last = -1;
+      for (let i = 1; i < n - 1; i++) if (s[i] > P.thr && s[i] >= s[i - 1] && s[i] >= s[i + 1] && (last < 0 || (i - last) / fs > .25)) { det.push(i / fs); last = i; }
+      const tp = det.filter(d => beats.some(b => Math.abs(b - d) < .06)).length;
+      res = { beats, s, fs, det, hrTrue: hr, rmTrue: rmssdOf(beats), hr: det.length > 2 ? 60 / ((det[det.length - 1] - det[0]) / (det.length - 1)) : 0, rm: rmssdOf(det), missed: beats.length - tp, extra: det.length - tp };
+    }
+    return {
+      update(dt, t, P) {
+        const kk = P.fs + '|' + P.noise + '|' + P.thr + '|' + P.stress; if (kk !== key) { key = kk; compute(P); }
+        t0 = (t0 + dt * .6) % 34;                        // window start, slowed down
+        const W = 4, fs = res.fs, i0 = Math.floor(t0 * fs), n = Math.floor(W * fs), pts = [];
+        for (let i = 0; i < N; i++) { const j = i0 + Math.floor(i / N * n); pts.push(map(i / N, (res.s[j] - .35) / 1.0)); }
+        trace.set(pts);
+        // sample dots (only the visible ones, capped)
+        const step = Math.max(1, Math.floor(n / DOTS)); let d = 0;
+        for (let j = 0; j < n && d < DOTS; j += step, d++) { const p = map(j / n, (res.s[i0 + j] - .35) / 1.0); da[d * 3] = p.x; da[d * 3 + 1] = p.y; da[d * 3 + 2] = p.z + .01; }
+        for (; d < DOTS; d++) da[d * 3 + 1] = -9;
+        dg.attributes.position.needsUpdate = true;
+        // peaks in the window
+        let q = 0; res.det.forEach(tt => { if (tt >= t0 && tt < t0 + W && q < peaks.length) { const j = Math.round(tt * fs); peaks[q++].position.copy(map((tt - t0) / W, (res.s[j] - .35) / 1.0)); } });
+        for (; q < peaks.length; q++) peaks[q].position.set(0, -9, 0);
+        thrLine.position.y = map(0, (P.thr - .35) / 1.0).y;
+      },
+      readouts(P) {
+        if (!res) compute(P);
+        const r = res;
+        return [['Heart rate', r.hr ? Math.round(r.hr) + ' bpm (true ' + r.hrTrue + ')' : '—', 'p'], ['RMSSD', Math.round(r.rm) + ' ms (true ' + Math.round(r.rmTrue) + ')', Math.abs(r.rm - r.rmTrue) > 8 ? 'p' : 'd'],
+          ['Timing step 1/fs', (1000 / r.fs).toFixed(1) + ' ms'], ['Missed / extra peaks', r.missed + ' / ' + r.extra, r.missed + r.extra ? 'p' : 'd']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 2 */
+{
+  id: 'lsl', phase: 'Adaptive twin', title: 'LSL to MQTT: streams, timestamps and clocks',
+  device: [['plux', 'biosignalsplux ECG']],
+  cam: [0.4, 4.4, 9.4], target: [0, 1.2, 0],
+  body: [
+    'The biosignals software publishes the ECG as a Lab Streaming Layer (LSL) stream: samples with timestamps from the recording computer\'s clock, which LSL keeps aligned with other streams (Kothe et al., 2025). Unity does not read LSL directly in this course; a bridge script provided by the lecturer pulls LSL chunks and publishes them to MQTT.',
+    'Two choices matter. How many samples go into one MQTT message (more per message means fewer messages but more waiting), and which time the twin uses: the LSL timestamp from the sensor side, or the moment the message arrived. Arrival time adds network delay and jitter to every heartbeat.'
+  ],
+  predict: { q: 'The bridge publishes ECG sampled at 500 Hz in chunks of 50 samples. How much delay does the batching alone add to the newest sample in a chunk, at most?', options: ['About 1 ms', 'About 100 ms', 'About 1 s'], answer: 1 },
+  test: 'Change the chunk size, the network delay and which timestamp Unity uses. Watch messages per second, added delay and the error on beat times.',
+  controls: [
+    { id: 'chunk', type: 'seg', label: 'Samples per MQTT message', options: [['1', '1'], ['10', '10'], ['50', '50'], ['250', '250']], value: '50' },
+    { id: 'lat', type: 'range', label: 'Network delay (mean)', min: 2, max: 200, step: 1, value: 30, fmt: v => v + ' ms' },
+    { id: 'ts', type: 'seg', label: 'Unity uses', options: [['lsl', 'LSL timestamp'], ['arr', 'Arrival time']], value: 'lsl' }
+  ],
+  prove: '<p>A chunk can only be sent when its last sample exists, so the first sample waits chunk/fs: 50/500 = 0.1 s. Fewer, larger messages are kinder to the broker and Wi-Fi; one message per sample (500 messages per second) is wasteful. Use the LSL timestamps carried inside the message to place beats in time; arrival time mixes in network delay and jitter, which corrupts HRV.</p><pre class="eq">messages/s   = fs / chunk          500 / 50 = 10\nbatch delay  ≤ chunk / fs          50 / 500 = 100 ms\nend-to-end   ≈ chunk/fs + L_net + t_unity\nbeat-time error (arrival time) ≈ jitter ≈ 0.3 · L_net (teaching model)\npayload: {"t0": 1731050000.512, "fs": 500, "ecg": [0.12, 0.15, …]}</pre><p>Jitter here is modelled as 30% of the mean delay; measure yours with timestamps on both sides.</p>',
+  teacher: {
+    outcomes: ['Explain LSL timestamps versus arrival time.', 'Choose an MQTT chunk size and estimate the added latency.'],
+    misconception: 'The time a message arrives is the time it was measured. Network delay and batching shift and blur it.',
+    lab: 'Run the lecturer\'s LSL→MQTT bridge at chunk sizes 1, 10 and 50; in Unity log both the LSL timestamp and arrival time and plot the difference.',
+    fits: 'DigiTech2 Unit 4 · L10 (MQTT + LSL into Unity)', refs: ['kothe2024lsl', 'mqtt5']
+  },
+  build(c) {
+    const xs = [-4.2, -2.1, 0, 2.1, 4.2];
+    bx(c, .85, .12, .54, xs[0], .06, 0, { fill: MC.black, role: 'sensor' }); c.label('ECG hub', V(xs[0], .55, .6), 'm rs');
+    bx(c, 1.3, .06, .9, xs[1], .03, 0, { fill: MC.metal }); bx(c, 1.3, .8, .05, xs[1], .45, -.45, { fill: MC.screen, role: 'controller' }); c.label('PC · LSL outlet', V(xs[1], 1.15, 0), 'm rc');
+    bx(c, .9, .5, .6, xs[2], .25, 0, { fill: MC.violet, role: 'controller' }); c.label('bridge.py', V(xs[2], .85, .4), 'm rc');
+    cy(c, .5, .5, 1.3, xs[3], .65, 0, { role: 'network', fill: ROLE_FILL.network }, undefined, 24); c.label('MQTT broker', V(xs[3], 1.6, .6), 'm rn');
+    bx(c, .14, 1.3, 1.7, xs[4], 1.1, 0, { role: 'network', fill: MC.screen }); c.label('Unity 6', V(xs[4], 2.0, 0), 'd');
+    const legs = [0, 1, 2, 3].map(i => new THREE.CatmullRomCurve3([V(xs[i] + .5, .5, 0), V((xs[i] + xs[i + 1]) / 2, 1.6, 0), V(xs[i + 1] - .5, .6, 0)]));
+    legs.forEach((cv, i) => c.line(cv.getPoints(40), i < 2 ? COL.phys : COL.dig, { dashed: true, opacity: .4 }));
+    c.label('LSL', V(-3.15, 1.75, 0), 'p'); c.label('MQTT', V(1.05, 1.75, 0), 'd');
+    // a clock face on the PC and one on Unity: they are not the same clock
+    const clockA = c.glow(COL.phys, .7, V(xs[1], .45, -.4)), clockB = c.glow(COL.dig, .7, V(xs[4] - .1, 1.1, 0));
+    const pk = c.packets(240, .26); let acc = 0, accS = 0;
+    return {
+      update(dt, t, P) {
+        const fs = 500, ch = +P.chunk, slow = .02;          // 2% real time: 10 samples/s on screen
+        accS += dt * fs * slow;
+        while (accS >= 1) { accS -= 1; acc++; pk.spawn(legs[0], { speed: 1.4, color: COL.phys }); }
+        if (acc >= ch) { acc = 0; const sz = ch; const sp = 1 / Math.max(.3, P.lat / 100);
+          pk.spawn(legs[1], { speed: 1.2, color: COL.phys, onArrive: () => pk.spawn(legs[2], { speed: sp, color: COL.dig, onArrive: () => pk.spawn(legs[3], { speed: sp, color: COL.dig, onArrive: () => { clockB.material.opacity = 1; } }) }) }); void sz; }
+        clockB.material.opacity = Math.max(.25, clockB.material.opacity - dt * 1.5); clockA.material.opacity = .5 + .5 * Math.sin(t * 3);
+      },
+      readouts(P) {
+        const fs = 500, ch = +P.chunk, L = P.lat;
+        const batch = 1000 * ch / fs, err = P.ts === 'lsl' ? 1 : .3 * L + batch / 2;
+        return [['Messages per second', (fs / ch).toFixed(fs / ch < 10 ? 1 : 0), ch === 1 ? 'p' : 'd'], ['Batch delay (newest sample)', batch.toFixed(0) + ' ms'],
+          ['End-to-end delay ≈', (batch + L + 11).toFixed(0) + ' ms'], ['Beat-time error', (P.ts === 'lsl' ? '≈ 1 ms (LSL clock sync)' : '≈ ' + err.toFixed(0) + ' ms'), P.ts === 'lsl' ? 'd' : 'p']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 3 */
+{
+  id: 'ilog', phase: 'Adaptive twin', title: 'Logging interaction and behaviour',
+  device: [['quest3', 'Meta Quest 3'], ['touch', 'Touch Plus']],
+  cam: [5.6, 6.4, 6.8], target: [0, .6, 0],
+  body: [
+    'The twin can only adapt to behaviour it records. In VR you can log continuous signals (head position and rotation, gaze or controller rays, at a fixed rate) and discrete events (entered zone, grabbed object, task done), each with a timestamp from the same clock as the ECG and the kit.',
+    'Decide in advance what you need for your adaptation rules and your user test, for example dwell time on a hazard, path length, task time. Logging everything at 90 Hz is easy and creates large, personal datasets; pseudonymous participant IDs and minimal fields are part of responsible research (European Parliament and Council, 2016).'
+  ],
+  predict: { q: 'You log head pose at 90 Hz during a 10-minute VR session. How many rows does that one stream produce?', options: ['About 5,400', 'About 54,000', 'About 540,000'], answer: 1 },
+  test: 'Change the logging rate, the session length and the fields per row. The blue path is the logged head position; orange marks are events; the cone is the gaze.',
+  controls: [
+    { id: 'rate', type: 'seg', label: 'Continuous logging rate', options: [['10', '10 Hz'], ['30', '30 Hz'], ['90', '90 Hz']], value: '90' },
+    { id: 'min', type: 'range', label: 'Session length', min: 2, max: 30, step: 1, value: 10, fmt: v => v + ' min' },
+    { id: 'fields', type: 'seg', label: 'Fields per row', options: [['min', 't, position'], ['full', '+ rotation, gaze target, HR']], value: 'full' }
+  ],
+  prove: '<p>90 samples per second × 600 s = 54,000 rows for one stream, before events. CSV text at around 120 bytes per full row is about 6.5 MB per session; ten participants and three conditions approach 200 MB. Log what your rules and analysis need, at the rate they need it: 10–30 Hz is plenty for dwell time and path length.</p><pre class="eq">rows    = f_log · 60 · minutes + events\nsize    ≈ rows · bytes_per_row        (t,x,y,z ≈ 40 B; full ≈ 120 B)\ndwell   = Σ Δt  while gaze ray hits the target\npath    = Σ ‖pᵢ₊₁ − pᵢ‖\nrow: 1731050012.044, P07, 1.42, 1.63, 0.88, qx, qy, qz, qw, "valve_3", 92</pre><p>Byte sizes are typical for CSV; binary formats are smaller.</p>',
+  teacher: {
+    outcomes: ['Specify a VR interaction log (fields, rate, clock).', 'Compute dwell time and path length from a log.'],
+    misconception: 'More data is always better. Data you cannot justify is a privacy risk and slows the analysis.',
+    lab: 'In Unity 6 write a logger component that appends head pose at 30 Hz and events to a CSV with pseudonymous IDs; compute dwell time on one object in Python.',
+    fits: 'DigiTech2 Unit 7 · L15 (VR interaction and logging)', refs: ['eu2016gdpr', 'slater2016']
+  },
+  build(c) {
+    bx(c, 7, .06, 5, 0, -.03, 0, { fill: MC.wood, line: COL.dim });
+    bx(c, 7, 1.6, .1, 0, .8, -2.5, { fill: MC.wall, fillOpacity: .6 }); bx(c, .1, 1.6, 5, -3.5, .8, 0, { fill: MC.wall, fillOpacity: .6 });
+    const targets = [[2.2, -1.6, MC.red, 'hazard'], [-2.4, 1.4, MC.servo, 'control panel'], [1.4, 1.6, MC.green, 'plant']];
+    targets.forEach(([x, z, col, n]) => { bx(c, .6, .9, .6, x, .45, z, { fill: col }); c.label(n, V(x, 1.2, z), 'm'); });
+    const user = person(c, 0, 0, MC.shirt);
+    const hmd = bx(c, .34, .18, .22, 0, 1.75, .2, { fill: MC.white }, user); void hmd;
+    const gaze = new THREE.Mesh(new THREE.ConeGeometry(.35, 2.6, 20, 1, true).rotateZ(-Math.PI / 2).translate(1.3, 0, 0), new THREE.MeshBasicMaterial({ color: COL.dig, transparent: true, opacity: .14, side: THREE.DoubleSide, depthWrite: false }));
+    gaze.position.y = 1.75; user.add(gaze);
+    const N = 240, path = dynLine(c, N, COL.dig, { opacity: .8 }), hist = [];
+    const ev = []; for (let i = 0; i < 10; i++) ev.push(c.glow(COL.phys, .45, V(0, -9, 0)));
+    let dwell = 0, evN = 0, lastHit = '';
+    return {
+      update(dt, t, P) {
+        const a = t * .35, x = 1.6 * Math.cos(a) * Math.cos(a * .7), z = 1.2 * Math.sin(a * 1.3);
+        user.position.set(x, 0, z);
+        const yaw = Math.atan2(-1.6 - z, 2.2 - x) * (Math.sin(t * .4) > 0 ? 1 : 0) + (Math.sin(t * .4) > 0 ? 0 : a * 2);
+        user.rotation.y = -yaw;
+        const every = 1 / (+P.rate) * 6;                       // drawn samples: 6x sparser than logged
+        if (!hist.t || t - hist.t > every) { hist.t = t; hist.push(V(x, .05, z)); if (hist.length > N) hist.shift(); }
+        path.set(hist.length ? hist : [V(0, -9, 0)]);
+        // gaze hit test against the hazard (dwell time)
+        const dir = V(Math.cos(yaw), 0, -Math.sin(yaw)), to = V(2.2 - x, 0, -1.6 - z), ang = dir.angleTo(to);
+        const hit = ang < .2 ? 'hazard' : '';
+        if (hit) dwell += dt;
+        if (hit && hit !== lastHit) { ev[evN % ev.length].position.set(x, 1.95, z); evN++; }
+        lastHit = hit; gaze.material.opacity = hit ? .32 : .14;
+      },
+      readouts(P) {
+        const rows = (+P.rate) * 60 * P.min, bpr = P.fields === 'full' ? 120 : 40, mb = rows * bpr / 1e6;
+        return [['Rows (head pose)', rows.toLocaleString('en-US'), 'd'], ['File size per session', mb.toFixed(1) + ' MB'],
+          ['10 participants × 3 conditions', (mb * 30).toFixed(0) + ' MB'], ['Dwell on hazard (this run)', dwell.toFixed(1) + ' s', 'p']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 4 */
+{
+  id: 'adapt', phase: 'Adaptive twin', title: 'Adaptation rules that do not flicker',
+  device: [['ml2', 'Magic Leap 2']],
+  cam: [0.6, 3.8, 9.4], target: [0, 1.9, 0],
+  body: [
+    'An adaptation rule turns data into a change: "if heart rate is high, dim the lights and slow the task." Written as a single threshold, a noisy signal that hovers near it will switch the experience on and off every few seconds, which is more stressful than no adaptation at all.',
+    'Control engineers fix this with three tools (Åström &amp; Murray, 2008): smoothing (a moving average over a few seconds), hysteresis (switch on above one value, off only below a lower one) and a minimum hold time. Each one trades flicker against a slower reaction, so you choose them per rule and document why.'
+  ],
+  predict: { q: 'The user\'s heart rate hovers around 100 bpm with normal beat-to-beat noise, and the rule is "dim the lights if HR > 100", with no smoothing or hysteresis. How often do the lights change?', options: ['About once a minute', 'Many times a minute (flicker)', 'Never'], answer: 1 },
+  test: 'Add smoothing, a hysteresis band and a hold time. The grey line is raw HR, blue is smoothed; orange bars show when the rule is on. At 30 s a real stress step begins.',
+  controls: [
+    { id: 'thr', type: 'range', label: 'Threshold (switch on above)', min: 85, max: 110, step: 1, value: 100, fmt: v => v + ' bpm' },
+    { id: 'hys', type: 'range', label: 'Hysteresis band', min: 0, max: 12, step: 1, value: 0, fmt: v => v + ' bpm' },
+    { id: 'win', type: 'range', label: 'Smoothing window', min: 1, max: 20, step: 1, value: 1, fmt: v => v + ' s' },
+    { id: 'hold', type: 'range', label: 'Minimum hold time', min: 0, max: 15, step: 1, value: 0, fmt: v => v + ' s' }
+  ],
+  prove: '<p>Raw heart rate wanders by a few bpm from beat to beat, so a bare threshold near the user\'s level fires many times a minute. A 5 s moving average removes most of that noise; a 5 bpm hysteresis band and a 5 s hold remove the rest. The price is a reaction delay of a few seconds to a real change, which is fine for lighting but too slow for a safety alert.</p><pre class="eq">smoothed  hrₛ(t) = mean(hr over the last W seconds)\non  when  hrₛ > θ          off  when  hrₛ < θ − h\nchange allowed only if  t − t_last ≥ t_hold\ndelay ≈ W/2 + time to cross θ</pre><p>The HR trace is synthetic: about 99 bpm with beat-to-beat noise and a slow drift, stepping to about 106 bpm at 30 s. "Steady on" means the rule then stays on for at least 5 s.</p>',
+  teacher: {
+    outcomes: ['Write an adaptation rule with smoothing, hysteresis and a hold time.', 'Trade flicker against reaction delay with numbers.'],
+    misconception: 'A threshold is a rule. Without hysteresis and smoothing it is an oscillator.',
+    lab: 'Implement the rule as a Unity 6 component reading HR from MQTT; log rule state and HR, then count switches per minute for three settings in a pilot session.',
+    fits: 'DigiTech2 Unit 7–8 · L16, L19 (adaptation)', refs: ['astrom2008']
+  },
+  build(c) {
+    const map = scope(c, 0, 2.3, -.6, 8, 2.4, 'heart rate · 60 s');
+    const lo = 80, hi = 115, vy = h => (h - (lo + hi) / 2) / ((hi - lo) / 2);
+    const rnd = mulberry32(5), T = 60, hr = new Float32Array(T * 10);
+    for (let i = 0; i < hr.length; i++) { const t = i / 10; hr[i] = (t < 30 ? 99 : 106) + 2.2 * Math.sin(t * .7) + (rnd() * 2 - 1) * 3.2; }
+    const raw = dynLine(c, 600, COL.dim, { opacity: .7 }), sm = dynLine(c, 600, COL.dig, { opacity: .95 });
+    const thrL = dynLine(c, 2, COL.phys, { opacity: .8 }), offL = dynLine(c, 2, COL.phys, { opacity: .35 });
+    const bars = []; for (let i = 0; i < 60; i++) { const b = bx(c, 8 / 60 * .9, .18, .1, -4 + (i + .5) * 8 / 60, .75, -.55, { fill: COL.phys, line: COL.phys }); bars.push(b); }
+    c.label('rule on (lights dimmed)', V(-4, .45, -.5), 'm');
+    // the room whose light the rule controls
+    bx(c, 2.2, .06, 1.6, 3, .03, 2.2, { fill: MC.wood }); const lamp = c.glow(0xFFD27A, 1.3, V(3, 1.6, 2.2)); cy(c, .05, .05, 1.5, 3, .78, 2.2, { fill: MC.metal }, undefined, 8);
+    c.label('room light', V(3, 2.3, 2.2), 'm');
+    let res = null, key = '', cursor = 0;
+    function compute(P) {
+      const W = Math.max(1, P.win * 10), s = new Float32Array(hr.length), on = new Uint8Array(hr.length);
+      for (let i = 0; i < hr.length; i++) { let a = 0, n = 0; for (let j = Math.max(0, i - W + 1); j <= i; j++) { a += hr[j]; n++; } s[i] = a / n; }
+      let st = 0, last = -1e9, sw = 0, firstOnAfterStep = -1;
+      for (let i = 0; i < hr.length; i++) {
+        const t = i / 10, want = st ? (s[i] < P.thr - P.hys ? 0 : 1) : (s[i] > P.thr ? 1 : 0);
+        if (want !== st && t - last >= P.hold) { st = want; last = t; sw++; if (st && t >= 30 && firstOnAfterStep < 0) firstOnAfterStep = t; }
+        on[i] = st;
+      }
+      let delay = null; for (let i = 300; i < hr.length - 50; i++) { let ok = true; for (let j = i; j < i + 50; j++) if (!on[j]) { ok = false; break; } if (ok) { delay = i / 10 - 30; break; } }
+      let swBefore = 0; let prev = on[0]; for (let i = 1; i < 300; i++) { if (on[i] !== prev) swBefore++; prev = on[i]; }
+      res = { s, on, sw, swPerMin: swBefore * 2, delay };
+    }
+    return {
+      update(dt, t, P) {
+        const k = [P.thr, P.hys, P.win, P.hold].join('|'); if (k !== key) { key = k; compute(P); }
+        raw.set(Array.from({ length: 600 }, (_, i) => map(i / 599, vy(hr[i]))));
+        sm.set(Array.from({ length: 600 }, (_, i) => map(i / 599, vy(res.s[i]))));
+        thrL.set([map(0, vy(P.thr)), map(1, vy(P.thr))]); offL.set([map(0, vy(P.thr - P.hys)), map(1, vy(P.thr - P.hys))]);
+        bars.forEach((b, i) => { b.visible = !!res.on[i * 10]; });
+        cursor = (cursor + dt * 6) % 60;
+        lamp.material.opacity = res.on[Math.floor(cursor * 10)] ? .25 : 1;
+      },
+      readouts(P) {
+        if (!res) compute(P);
+        return [['Switches per minute (0–30 s)', String(res.swPerMin), res.swPerMin > 2 ? 'p' : 'd'], ['Steady "on" after the step at 30 s', res.delay === null ? 'never steady' : '+' + res.delay.toFixed(1) + ' s'],
+          ['Switch on above', P.thr + ' bpm'], ['Switch off below', (P.thr - P.hys) + ' bpm']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 5 */
+{
+  id: 'exper', phase: 'Adaptive twin', title: 'Testing the adaptation: a small user study',
+  cam: [0.4, 4.0, 9.2], target: [0, 1.6, 0],
+  body: [
+    'Requirement 6 asks whether the adaptation helps. That is a hypothesis: "with adaptive lighting, task time (or reported stress) is lower than without." The independent variable is the condition (adaptive vs static); the dependent variables are what you measure; everything else is kept constant.',
+    'With few participants, a within-subject design (everyone tries both conditions, in counterbalanced order) is far more sensitive than splitting people into two groups. Even so, power is low for medium effects, so report effect sizes and confidence intervals, not only p-values (Cohen, 1988; Field, 2013).'
+  ],
+  predict: { q: 'Ten students test both conditions (within-subject). The true effect is medium (d = 0.5). What is the chance that a paired t-test at α = .05 finds it?', options: ['About 90%', 'About 30%', 'About 5%'], answer: 1 },
+  test: 'Switch design, change the number of participants and the true effect size. Each dot is a participant; lines join the same person\'s two conditions.',
+  controls: [
+    { id: 'design', type: 'seg', label: 'Design', options: [['within', 'Within-subject (paired)'], ['between', 'Between-subject (two groups)']], value: 'within' },
+    { id: 'n', type: 'range', label: 'Participants (total)', min: 6, max: 60, step: 2, value: 10, fmt: v => String(v) },
+    { id: 'd', type: 'range', label: 'True effect size d', min: .1, max: 1.4, step: .05, value: .5, fmt: v => v.toFixed(2) }
+  ],
+  prove: '<p>Power is the chance a test detects an effect that is really there. For a paired design the noncentrality is d·√n; with n = 10 and d = 0.5 that is 1.58, giving roughly 30% power. A between-subject design with 5 per group gets about 10%. To reach 80% power you need about 34 people within-subject, or about 64 per group between-subject.</p><pre class="eq">within  (paired t):  δ = d_z · √n            n₈₀ ≈ ((z₀.₉₇₅ + z₀.₈) / d)² + 2\nbetween (two groups): δ = d · √(n_g / 2)      n_g,₈₀ ≈ 2 ((z₀.₉₇₅ + z₀.₈) / d)²\npower ≈ Φ(δ − 1.96)      z₀.₉₇₅ = 1.96, z₀.₈ = 0.84\nreport: t(9) = 2.10, p = .065, d_z = 0.66, 95% CI [−0.3, 7.1] s</pre><p>The normal approximation is slightly optimistic for small n; use G*Power or statsmodels for real planning. d_z is taken equal to d here (correlation 0.5 between conditions).</p>',
+  teacher: {
+    outcomes: ['State a testable hypothesis with independent and dependent variables.', 'Choose a within-subject, counterbalanced design and estimate power.'],
+    misconception: 'p > .05 means the adaptation does not work. With 10 participants, a missing significant result mostly means the study was small.',
+    lab: 'Plan the Project2 user test: hypothesis, variables, AB/BA counterbalancing, consent form and analysis script (paired t-test or Wilcoxon) in Python.',
+    fits: 'DigiTech2 Unit 1 · L2 and Unit 7 · L16–17', refs: ['cohen1988', 'field2013', 'eu2016gdpr']
+  },
+  build(c) {
+    bx(c, 9, .06, 4.4, 0, -.03, 0, { fill: MC.stone, line: COL.dim, fillOpacity: .5 });
+    const xA = -1.6, xB = 1.6, base = .2, sc = .9;
+    bx(c, 2.4, .04, 3.6, xA, .02, 0, { fill: MC.white }); bx(c, 2.4, .04, 3.6, xB, .02, 0, { fill: MC.white });
+    c.label('static', V(xA, .2, 2.2), 'm'); c.label('adaptive', V(xB, .2, 2.2), 'p');
+    c.label('task time (s)', V(-4, 2.9, 0), 'm');
+    const ax = c.line([V(-3.6, base, -1.8), V(-3.6, 3.2, -1.8)], COL.dim);
+    void ax;
+    const MAXN = 60, dotsA = [], dotsB = [], links = [];
+    for (let i = 0; i < MAXN; i++) { dotsA.push(c.glow(COL.dim, .32, V(0, -9, 0))); dotsB.push(c.glow(COL.phys, .32, V(0, -9, 0))); links.push(c.line([V(0, -9, 0), V(0, -9, 0)], COL.dim, { opacity: .35 })); }
+    const meanA = c.line([V(xA - .9, 0, 0), V(xA + .9, 0, 0)], COL.chalk), meanB = c.line([V(xB - .9, 0, 0), V(xB + .9, 0, 0)], COL.phys);
+    let key = '', stats = null;
+    const phi = z => .5 * (1 + Math.tanh(.7978845608 * (z + .044715 * z * z * z)));
+    function compute(P) {
+      const r = mulberry32(11), g = () => Math.sqrt(-2 * Math.log(r() + 1e-9)) * Math.cos(2 * Math.PI * r());
+      const n = P.n, sd = 6, mu = 40, rows = [];
+      for (let i = 0; i < n; i++) { const person = g() * sd * .7; rows.push({ a: mu + person + g() * sd * .7, b: mu - P.d * sd + person + g() * sd * .7, grp: i % 2 }); }
+      const z = 1.96 + .84;
+      const delta = P.design === 'within' ? P.d * Math.sqrt(n) : P.d * Math.sqrt((n / 2) / 2);
+      const nNeed = P.design === 'within' ? Math.ceil((z / P.d) ** 2 + 2) : Math.ceil(2 * (z / P.d) ** 2);
+      stats = { rows, power: phi(delta - 1.96), nNeed };
+    }
+    return {
+      update(dt, t, P) {
+        const k = P.design + '|' + P.n + '|' + P.d; if (k !== key) { key = k; compute(P); }
+        const y = v => base + (v - 20) / 40 * 2.8 * sc;
+        let sa = 0, sb = 0, na = 0, nb = 0;
+        stats.rows.forEach((row, i) => {
+          const zz = -1.5 + (i / Math.max(1, stats.rows.length - 1)) * 3;
+          const showA = P.design === 'within' || row.grp === 0, showB = P.design === 'within' || row.grp === 1;
+          dotsA[i].position.set(showA ? xA + Math.sin(i * 7.1) * .5 : 0, showA ? y(row.a) : -9, zz);
+          dotsB[i].position.set(showB ? xB + Math.sin(i * 3.3) * .5 : 0, showB ? y(row.b) : -9, zz);
+          const lg = links[i].geometry.attributes.position;
+          if (P.design === 'within') { lg.setXYZ(0, dotsA[i].position.x, dotsA[i].position.y, zz); lg.setXYZ(1, dotsB[i].position.x, dotsB[i].position.y, zz); } else { lg.setXYZ(0, 0, -9, 0); lg.setXYZ(1, 0, -9, 0); }
+          lg.needsUpdate = true;
+          if (showA) { sa += row.a; na++; } if (showB) { sb += row.b; nb++; }
+        });
+        for (let i = stats.rows.length; i < MAXN; i++) { dotsA[i].position.y = -9; dotsB[i].position.y = -9; const lg = links[i].geometry.attributes.position; lg.setY(0, -9); lg.setY(1, -9); lg.needsUpdate = true; }
+        meanA.position.y = y(sa / Math.max(1, na)); meanB.position.y = y(sb / Math.max(1, nb));
+      },
+      readouts(P) {
+        if (!stats) compute(P);
+        return [['Power to detect d = ' + P.d.toFixed(2), Math.round(stats.power * 100) + ' %', stats.power < .8 ? 'p' : 'd'], ['Needed for 80 % power', stats.nNeed + (P.design === 'within' ? ' participants' : ' per group')],
+          ['Design', P.design === 'within' ? 'paired, AB/BA order' : 'two independent groups'], ['Test', P.design === 'within' ? 'paired t (or Wilcoxon)' : 'Welch t (or Mann–Whitney)']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 6 */
+{
+  id: 'homesense', phase: 'Smart-home kit', title: 'Smart-home kit: sensing a living space',
+  cam: [4.6, 5.2, 7.4], target: [0, .8, 0],
+  body: [
+    'The Keyestudio KS5009 smart-home kit puts an ESP32 PLUS board inside a small wooden house. Its sensors: an XHT11 temperature and humidity sensor (IO17), an analog gas sensor (IO23), a steam (water drop) sensor on the roof (IO34), a PIR motion sensor (IO14), two buttons (IO16, IO27) and an RFID reader on I²C (Keyestudio, n.d.).',
+    'Each sensor tells the twin something different, and none of them directly says "a person is in the room." A PIR sensor reacts to moving warm bodies, not to presence: someone sitting still is invisible to it after its hold time. The twin has to keep an occupancy state and decide when it expires.'
+  ],
+  predict: { q: 'You walk into the room, the PIR on IO14 goes HIGH, then you sit still on the sofa for 30 s. What does the PIR report?', options: ['Still HIGH: you are in the room', 'LOW after its hold time, although you are still there', 'Your distance from the sensor'], answer: 1 },
+  test: 'Trigger events and watch which pin changes, what the ESP32 publishes, and what the twin concludes about occupancy.',
+  controls: [
+    { id: 'ev', type: 'seg', label: 'Event', options: [['walk', 'Person walks in'], ['sit', 'Person sits still'], ['gas', 'Gas leak'], ['rain', 'Rain on the roof']], value: 'walk' },
+    { id: 'timeout', type: 'range', label: 'Twin occupancy timeout', min: 5, max: 300, step: 5, value: 60, fmt: v => v + ' s' }
+  ],
+  prove: '<p>A PIR outputs HIGH while infrared changes, then drops after a short hold time (a few seconds on this module). A still person produces no change, so occupancy must be inferred: keep "occupied" true until no motion has been seen for a timeout, and refresh it on every motion event. The other sensors are levels you can threshold directly.</p><pre class="eq">PIR (IO14):  digital, HIGH on motion, then LOW after hold time\nGas (IO23):  analog read → 0…4095 (12-bit ADC) → threshold\nSteam (IO34): analog, higher with water on the pads\nXHT11 (IO17): °C and %RH, about once per second\noccupied = (t − t_last_motion) < timeout</pre><p>The house is drawn schematically; pin numbers follow the KS5009 documentation.</p>',
+  teacher: {
+    outcomes: ['Map each KS5009 sensor to a pin, a signal type and an MQTT topic.', 'Infer occupancy from a PIR with a timeout.'],
+    misconception: 'Motion sensors detect people. They detect change; presence has to be modelled.',
+    lab: 'Publish home/livingroom/motion, /temp, /humidity, /gas and /rain from the KS5009, and show occupancy with a configurable timeout in the Unity twin.',
+    fits: 'Project2 · Home Assistance (smart-home kit)', refs: ['ks5009', 'mqtt5']
+  },
+  build(c) {
+    // the wooden house: floor, two walls, a pitched roof
+    bx(c, 4.2, .1, 3.2, 0, .05, 0, { fill: MC.wood });
+    bx(c, 4.2, 2.2, .08, 0, 1.15, -1.6, { fill: MC.wood, fillOpacity: .9 }); bx(c, .08, 2.2, 3.2, -2.1, 1.15, 0, { fill: MC.wood, fillOpacity: .9 });
+    const roof = c.ink(new THREE.BoxGeometry(4.4, .08, 1.9).translate(0, 0, .95), { fill: MC.woodDark, fillOpacity: .9 }); roof.position.set(0, 2.3, -1.6); roof.rotation.x = .55;
+    espBoard(c, -1.2, -.9, 1.4, .9, 'ESP32 PLUS');
+    const S = {
+      pir: [1.4, 1.9, -1.55, 'PIR · IO14', 'sensor'], gas: [-1.95, 1.0, .6, 'gas · IO23', 'sensor'], dht: [-1.95, 1.6, -.6, 'XHT11 · IO17', 'sensor'],
+      steam: [.4, 2.75, -.9, 'steam · IO34', 'sensor']
+    };
+    const glows = {};
+    Object.entries(S).forEach(([k, [x, y, z, n, r]]) => { bx(c, .4, .3, .12, x, y, z, { role: r, fill: ROLE_FILL[r] }); c.label(n, V(x, y + .38, z + .2), 'm rs'); glows[k] = c.glow(COL.phys, .8, V(x, y, z + .15)); });
+    const sofa = bx(c, 1.4, .45, .7, 1.0, .32, .6, { fill: MC.violet }); void sofa;
+    const who = person(c, 2.6, 1.2, MC.shirt);
+    const occ = c.label('', V(0, 3.4, 0), 'd');
+    const drops = []; for (let i = 0; i < 14; i++) drops.push(c.glow(MC.water, .25, V(0, -9, 0)));
+    const gasCloud = c.glow(0x9BC53D, 3, V(-1.4, .7, .8));
+    let tMotion = -999, time = 0, pir = 0, last = '';
+    return {
+      update(dt, t, P) {
+        time += dt;
+        if (P.ev !== last) { last = P.ev; if (P.ev === 'walk') tMotion = time; }
+        const walking = P.ev === 'walk' && time - tMotion < 6;
+        if (P.ev === 'walk') { const u = Math.min(1, (time - tMotion) / 6); who.position.set(2.6 - 1.7 * u, 0, 1.2 - .3 * u); who.visible = true; }
+        else if (P.ev === 'sit') { who.position.set(1.0, -.25, .6); who.visible = true; }
+        else who.visible = false;
+        if (walking) { pir = 1; tMotion = Math.max(tMotion, time - .1); } else pir = (time - tMotion) < (P.ev === 'walk' ? 8.5 : 2.5) && P.ev === 'walk' ? 1 : 0;
+        glows.pir.material.opacity = pir ? 1 : .08;
+        glows.gas.material.opacity = P.ev === 'gas' ? .6 + .4 * Math.sin(t * 6) : .08;
+        glows.steam.material.opacity = P.ev === 'rain' ? 1 : .08;
+        glows.dht.material.opacity = .25 + .2 * Math.sin(t * 2);
+        gasCloud.material.opacity = P.ev === 'gas' ? .35 : 0;
+        drops.forEach((d, i) => { if (P.ev === 'rain') { const u = ((t * .8 + i / 14) % 1); d.position.set(-1.6 + (i % 7) * .55, 3.6 - u * 1.2, -1.2 + Math.floor(i / 7) * .6); } else d.position.y = -9; });
+        const occupied = (time - tMotion) < P.timeout && tMotion > -999 && (P.ev === 'walk' || P.ev === 'sit');
+        occ.set('twin: room ' + (occupied ? 'occupied' : 'empty') + (P.ev === 'sit' ? ' (person still there)' : ''));
+        occ.el.style.color = (P.ev === 'sit' && !occupied) ? 'var(--phys)' : '';
+      },
+      readouts(P) {
+        const map = { walk: ['IO14 (PIR)', 'HIGH, then LOW after hold', 'home/livingroom/motion = 1'], sit: ['IO14 (PIR)', 'LOW: no change to see', 'nothing published'], gas: ['IO23 (gas)', '≈ 2,900 of 4,095', 'home/livingroom/gas = 2900'], rain: ['IO34 (steam)', '≈ 2,400 of 4,095', 'home/roof/rain = 1'] }[P.ev];
+        return [['Pin that changes', map[0], 'p'], ['Signal', map[1]], ['MQTT', map[2], 'd'], ['Occupancy timeout', P.timeout + ' s']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 7 */
+{
+  id: 'homeact', phase: 'Smart-home kit', title: 'Doors, windows and safe actuation',
+  cam: [4.4, 5.0, 8.4], target: [0.2, 1.3, -.5],
+  body: [
+    'The KS5009 actuators are a door servo (IO13), a window servo (IO5), a fan motor (IO18/IO19), an RGB LED strip (IO26), a yellow LED (IO12) and a buzzer (IO25) (Keyestudio, n.d.). A hobby servo turns to an angle set by the width of a pulse repeated 50 times a second: about 0.5 ms for 0° and 2.5 ms for 180°.',
+    'Once the twin can command them, rules can conflict. Rain says "close the window", a gas alarm says "open it". A twin that actuates the real world needs explicit priorities (safety first), safe default states when the connection is lost, and a manual override.'
+  ],
+  predict: { q: 'It starts to rain while the gas sensor is in alarm. With safety-first priorities, what should the window do?', options: ['Close, because of the rain', 'Open (and the fan run), because gas ventilation outranks rain', 'Stay where it is'], answer: 1 },
+  test: 'Set the window angle, switch the rules on, and create the conflict. Watch the pulse width and the final command.',
+  controls: [
+    { id: 'ang', type: 'range', label: 'Window servo command', min: 0, max: 180, step: 1, value: 90, fmt: v => v + '°' },
+    { id: 'scn', type: 'seg', label: 'Situation', options: [['none', 'Normal'], ['rain', 'Rain'], ['gas', 'Gas alarm'], ['both', 'Rain + gas'], ['lost', 'Wi-Fi lost']], value: 'both' },
+    { id: 'prio', type: 'toggle', label: 'Safety-first priority (gas > rain > user)', value: true }
+  ],
+  prove: '<p>Rules are evaluated in priority order and the highest active one wins. Gas ventilation protects health, rain only protects furniture, so the window opens and the fan runs while the twin shows a warning. If Wi-Fi drops, the ESP32 must fall back to a safe state on its own, without waiting for the twin.</p><pre class="eq">pulse = 0.5 ms + (angle / 180°) · 2.0 ms      period 20 ms (50 Hz)\nduty  = pulse / 20 ms        90° → 1.5 ms → 7.5 %\npriority: gas_alarm > rain > user_command > adaptation\nsafe state (no Wi-Fi > 10 s): window closed unless gas, fan off, buzzer on if gas</pre><p>Pulse limits vary by servo; measure yours before driving it to the ends.</p>',
+  teacher: {
+    outcomes: ['Convert a servo angle into a PWM pulse width.', 'Design rule priorities and safe states for actuation.'],
+    misconception: 'The twin is in charge. Safety logic belongs on the device too, because the twin may be offline.',
+    lab: 'Subscribe the KS5009 to home/cmd/window and home/cmd/fan, enforce priorities and a Wi-Fi-loss safe state on the ESP32, and publish home/state/window (retained).',
+    fits: 'Project2 · Home Assistance (bidirectional twin, added value)', refs: ['ks5009', 'astrom2008']
+  },
+  build(c) {
+    bx(c, 4.2, .1, 3.2, 0, .05, 0, { fill: MC.wood });
+    bx(c, 4.2, 2.2, .08, 0, 1.15, -1.6, { fill: MC.wood, fillOpacity: .85 });
+    // window opening and its hinged pane
+    bx(c, 1.3, 1.0, .1, 1.0, 1.4, -1.58, { fill: MC.glass, fillOpacity: .25, line: COL.dim });
+    const pane = new THREE.Group(); pane.position.set(.35, 1.4, -1.55); c.root.add(pane);
+    c.ink(new THREE.BoxGeometry(1.3, 1.0, .05).translate(.65, 0, 0), { fill: MC.glass, fillOpacity: .55, role: 'actuator' }, pane);
+    c.label('window servo · IO5', V(1.0, 2.2, -1.4), 'm ra');
+    // door on the side wall
+    const door = new THREE.Group(); door.position.set(-2.1, .6, .2); c.root.add(door);
+    c.ink(new THREE.BoxGeometry(.06, 1.1, .8).translate(0, 0, .4), { fill: MC.woodDark, role: 'actuator' }, door); c.label('door servo · IO13', V(-2.1, 1.5, .8), 'm ra');
+    const fan = new THREE.Group(); fan.position.set(-1.2, 1.9, -1.45); c.root.add(fan);
+    for (let i = 0; i < 3; i++) c.ink(new THREE.BoxGeometry(.5, .1, .02).translate(.25, 0, 0).rotateZ(i * 2.094), { fill: MC.white, role: 'actuator' }, fan);
+    c.label('fan · IO18/19', V(-1.2, 2.45, -1.4), 'm ra');
+    // a pulse train on a little scope
+    const map = scope(c, 2.6, 2.9, -2.4, 3, .7, 'servo pulse · 20 ms');
+    const pulse = dynLine(c, 12, COL.phys, { opacity: .95 });
+    const status = c.label('', V(0, .5, 1.9), 'd');
+    let paneA = 0;
+    return {
+      update(dt, t, P) {
+        const rain = P.scn === 'rain' || P.scn === 'both', gas = P.scn === 'gas' || P.scn === 'both', lost = P.scn === 'lost';
+        let cmd = P.ang, why = 'user command';
+        if (P.prio) { if (gas) { cmd = 180; why = 'gas: ventilate'; } else if (rain) { cmd = 0; why = 'rain: close'; } else if (lost) { cmd = 0; why = 'Wi-Fi lost: safe state'; } }
+        else { if (rain) { cmd = 0; why = 'rain rule ran last'; } if (gas && !rain) { cmd = 180; why = 'gas'; } }
+        paneA += ((cmd / 180) * 1.2 - paneA) * Math.min(1, dt * 3); pane.rotation.y = paneA;
+        fan.rotation.z += dt * (gas ? 14 : 0);
+        door.rotation.y = gas ? -1.1 : 0;
+        const pw = .5 + cmd / 180 * 2, w = 4, u = pw / 20 * 3;   // three periods shown
+        const pts = []; for (let k = 0; k < 3; k++) { const a = k / 3; pts.push(map(a, -.8), map(a, .8), map(a + pw / 20 / 3, .8), map(a + pw / 20 / 3, -.8)); }
+        pulse.set(pts); void w; void u;
+        status.set('window ' + Math.round(cmd) + '° · ' + why);
+        status.el.style.color = (!P.prio && gas && rain) ? 'var(--phys)' : '';
+        this._r = { cmd, pw, why };
+      },
+      readouts(P) {
+        const r = this._r || { cmd: P.ang, pw: .5 + P.ang / 180 * 2, why: '' };
+        return [['Window command', Math.round(r.cmd) + '°', 'p'], ['Pulse width', (r.pw).toFixed(2) + ' ms (' + (r.pw / 20 * 100).toFixed(1) + ' % duty)'],
+          ['Decided by', r.why, 'd'], ['Fan', (P.scn === 'gas' || P.scn === 'both') && P.prio ? 'on (ventilate)' : 'off']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 8 */
+{
+  id: 'hometwin', phase: 'Smart-home kit', title: 'The Home Assistance twin: retained state and comfort',
+  device: [['plux', 'biosignalsplux ECG'], ['quest3', 'Meta Quest 3']],
+  cam: [0.6, 4.4, 9.4], target: [0, 1.4, 0],
+  body: [
+    'When Unity starts, or reconnects after a crash, it needs the current state of the home at once, not after the next change. MQTT retained messages do this: the broker keeps the last message on a topic and hands it to every new subscriber. Retain states (home/state/window = 0), not commands, or an old "open the door" would run again on reconnect (OASIS, 2019).',
+    'The Home Assistance twin then combines comfort and the resident: temperature and humidity from the XHT11, occupancy from the PIR, heart rate from the ECG. A comfort rule might turn on the fan and switch the RGB strip (IO26) to a calm colour when the room is warm, occupied and the resident\'s heart rate is high.'
+  ],
+  predict: { q: 'Which MQTT messages should the smart-home kit publish with the retain flag?', options: ['Every sensor reading and every command', 'The last known state of each device and sensor (window, door, fan, temperature)', 'Only commands from the twin'], answer: 1 },
+  test: 'Restart Unity with and without retained state, then change temperature, humidity and heart rate to see when the comfort rule fires.',
+  controls: [
+    { id: 'ret', type: 'toggle', label: 'Kit publishes states with retain', value: true },
+    { id: 'temp', type: 'range', label: 'Room temperature (XHT11)', min: 16, max: 32, step: .5, value: 26, fmt: v => v.toFixed(1) + ' °C' },
+    { id: 'rh', type: 'range', label: 'Humidity (XHT11)', min: 20, max: 90, step: 1, value: 55, fmt: v => v + ' %' },
+    { id: 'hr', type: 'range', label: 'Resident heart rate (ECG)', min: 55, max: 130, step: 1, value: 96, fmt: v => v + ' bpm' }
+  ],
+  prove: '<p>Without retain, a freshly started twin shows "unknown" for every device until it changes, which may be hours for a closed window. With retained states it is correct within one round trip. The comfort rule here fires when the room is outside the comfort band and the resident is occupied and aroused; each condition comes from a different source, which is exactly why the twin needs one shared clock and topic plan.</p><pre class="eq">retain: home/state/# and home/livingroom/# (last value)   never: home/cmd/#\ncomfort band (teaching): 20–25 °C and 30–60 %RH\nfan_on   = occupied ∧ (T > 25 ∨ RH > 60)\ncalm_RGB = occupied ∧ HR > HR_rest + 20  (with hysteresis, see the adaptation lesson)</pre><p>The comfort band is a simplified teaching rule, not a thermal-comfort model.</p>',
+  teacher: {
+    outcomes: ['Choose which topics to retain in a Home Assistance twin.', 'Write a comfort rule that combines kit sensors with ECG data.'],
+    misconception: 'Retain everything to be safe. Retained commands replay on reconnect and can actuate the real home unexpectedly.',
+    lab: 'Set retain on all home/state topics of the KS5009, restart Unity and measure time to a correct twin; add the comfort rule with logging.',
+    fits: 'Project2 · Home Assistance', refs: ['ks5009', 'mqtt5', 'kritzinger2018']
+  },
+  build(c) {
+    // house (left), broker with a retained store (middle), Unity (right)
+    bx(c, 2.6, .1, 2.2, -3.2, .05, 0, { fill: MC.wood }); bx(c, 2.6, 1.6, .08, -3.2, .85, -1.1, { fill: MC.wood, fillOpacity: .9 });
+    espBoard(c, -3.4, .1, 1.1, .7, 'KS5009');
+    const fan = new THREE.Group(); fan.position.set(-2.4, 1.3, -1.0); c.root.add(fan);
+    for (let i = 0; i < 3; i++) c.ink(new THREE.BoxGeometry(.4, .08, .02).translate(.2, 0, 0).rotateZ(i * 2.094), { fill: MC.white, role: 'actuator' }, fan);
+    const rgb = c.glow(0xFFFFFF, 1.6, V(-3.8, 1.4, -1.0));
+    cy(c, .55, .55, 1.5, 0, .75, 0, { role: 'network', fill: ROLE_FILL.network }, undefined, 24); c.label('broker', V(0, 1.75, .7), 'm rn');
+    const store = []; ['window', 'door', 'fan', 'temp'].forEach((n, i) => { const g = bx(c, .5, .18, .3, 0, .4 + i * .28, .62, { fill: MC.amber }); store.push(g); });
+    c.label('retained store', V(.9, .4, .9), 'm');
+    bx(c, .14, 1.4, 1.9, 3.3, 1.2, 0, { role: 'network', fill: MC.screen }); c.label('Unity twin', V(3.3, 2.2, 0), 'd');
+    const twinLbl = c.label('', V(3.3, .2, 1.1), 'm');
+    const up = new THREE.CatmullRomCurve3([V(-2.6, .6, 0), V(-1.3, 1.8, 0), V(-.6, 1.0, 0)]), dn = new THREE.CatmullRomCurve3([V(.6, 1.0, 0), V(1.9, 1.9, 0), V(3.1, 1.2, 0)]);
+    c.line(up.getPoints(40), COL.phys, { dashed: true, opacity: .4 }); c.line(dn.getPoints(40), COL.dig, { dashed: true, opacity: .4 });
+    const pk = c.packets(100, .28);
+    let tRestart = -9, known = 0, next = 0, time = 0;
+    return {
+      update(dt, t, P) {
+        time += dt;
+        if (time > tRestart + 9) { tRestart = time; known = P.ret ? 0 : 0; if (P.ret) pk.spawn(dn, { speed: 1.2, color: COL.dig, onArrive: () => { known = 4; } }); }
+        if (time > next) { next = time + 2.5; pk.spawn(up, { speed: 1, color: COL.phys, onArrive: () => pk.spawn(dn, { speed: 1.2, color: COL.dig, onArrive: () => { known = Math.min(4, known + 1); } }) }); }
+        store.forEach(s => { s.visible = P.ret; });
+        const occupied = true, warm = P.temp > 25 || P.rh > 60, calm = occupied && P.hr > 65 + 20;
+        fan.rotation.z += dt * (warm ? 12 : 0);
+        rgb.material.color.setHex(calm ? 0x6FA8FF : 0xFFE6B0);
+        twinLbl.set('devices known: ' + known + ' of 4' + (known < 4 ? ' (waiting for changes…)' : ''));
+        twinLbl.el.style.color = known < 4 ? 'var(--phys)' : '';
+        this._r = { warm, calm };
+      },
+      readouts(P) {
+        const r = this._r || {};
+        return [['After a Unity restart', P.ret ? 'full state in ≈ 1 round trip' : 'unknown until each device changes', P.ret ? 'd' : 'p'], ['Comfort band', (P.temp >= 20 && P.temp <= 25 && P.rh >= 30 && P.rh <= 60) ? 'inside' : 'outside'],
+          ['Fan (IO18/19)', r.warm ? 'on' : 'off', 'p'], ['RGB strip (IO26)', r.calm ? 'calm blue (HR high)' : 'warm white']];
+      }
+    };
+  }
+}
+];
+
+
 
 /* ==================================================================
    COMPUTER VISION lessons + topic structure
@@ -2231,10 +2816,12 @@ const TOPICS = [
   { id: 'robotics', name: 'Robotics', ids: ['arm', 'ros2'] },
   { id: 'iot', name: 'IoT', ids: ['mqtt', 'farm', 'solar'] },
   { id: 'kit', name: 'Smart farm kit', ids: ['kitpins', 'kitadc', 'kitpump', 'kitclimate', 'kitdoor', 'kitweb'] },
+  { id: 'home', name: 'Smart-home kit', ids: ['homesense', 'homeact', 'hometwin'] },
+  { id: 'adaptive', name: 'Adaptive twin', ids: ['ecg', 'lsl', 'ilog', 'adapt', 'exper'] },
   { id: 'validation', name: 'Twin data & validation', ids: ['bidir', 'sync'] }
 ];
 (function orderByTopic() {
-  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
+  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS, ADAPT_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
   LESSONS.length = 0;
   TOPICS.forEach(t => { t.idx = []; t.ids.forEach((id, k) => { const L = byId[id]; L.topic = t; L.inTopic = k; t.idx.push(LESSONS.length); LESSONS.push(L); }); });
 })();

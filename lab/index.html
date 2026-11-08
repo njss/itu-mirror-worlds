@@ -42,10 +42,10 @@
 </style>
 </head>
 <body>
-<header class="dl-top"><a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>Device Lab</small></a><nav class="dl-chap" aria-label="Devices"><a href="/lab/quest3" title="Meta Quest 3">01</a><a href="/lab/varjo" title="Varjo XR-3 · XR-4">02</a><a href="/lab/ml2" title="Magic Leap 2">03</a><a href="/lab/touch" title="Touch Plus">04</a><a href="/lab/tracking" title="Lighthouse vs inside-out">05</a><a href="/lab/zed2i" title="ZED 2i">06</a><a href="/lab/pro3" title="Matterport Pro3">07</a><a href="/lab/x5" title="Insta360 X5">08</a></nav><div class="dl-tools"><a class="dl-btn" href="/">Book</a></div></header>
+<header class="dl-top"><a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>Device Lab</small></a><nav class="dl-chap" aria-label="Devices"><a href="/lab/quest3" title="Meta Quest 3">01</a><a href="/lab/varjo" title="Varjo XR-3 · XR-4">02</a><a href="/lab/ml2" title="Magic Leap 2">03</a><a href="/lab/touch" title="Touch Plus">04</a><a href="/lab/tracking" title="Lighthouse vs inside-out">05</a><a href="/lab/plux" title="biosignalsplux ECG">06</a><a href="/lab/zed2i" title="ZED 2i">07</a><a href="/lab/pro3" title="Matterport Pro3">08</a><a href="/lab/x5" title="Insta360 X5">09</a></nav><div class="dl-tools"><a class="dl-btn" href="/">Book</a></div></header>
 <main>
     <h1>Device Lab <i>how XR hardware works</i></h1>
-  <p class="lede">Eight devices you will use or meet when building digital twins, rebuilt at real size from published specifications. Each page runs a small physical model live: change the slider, read the number, then <b>explode</b>, <b>cut away</b> or <b>x-ray</b> the device, and press the red button to see what breaks it.</p>
+  <p class="lede">Nine devices you will use or meet when building digital twins, rebuilt at real size from published specifications. Each page runs a small physical model live: change the slider, read the number, then <b>explode</b>, <b>cut away</b> or <b>x-ray</b> the device, and press the red button to see what breaks it.</p>
   <div class="xr"><span class="vr">Enter VR · hold the device in a studio</span><span class="mr">Enter MR · see it in your room (Quest 3 passthrough)</span><span>grip = grab · trigger = panel / explode · stick = turn &amp; zoom · A = x-ray · B = cut</span></div>
     <h2 class="g">Headsets</h2>
   <div class="grid">
@@ -58,11 +58,15 @@
     <a class="card" href="/lab/touch"><span class="no">Device 04</span><h3>Touch Plus</h3><p>Ringless tracking: hidden IR LEDs, perspective-n-point, IMU drift and hand-tracking fusion.</p><span class="eq">e = ½·b·t²</span></a>
     <a class="card" href="/lab/tracking"><span class="no">Device 05</span><h3>Lighthouse vs inside-out</h3><p>Vive Tracker 3.0 and Base Station 2.0: laser sweeps turned into angles, compared with cameras.</p><span class="eq">θ = 2π·f·t</span></a>
   </div>
+  <h2 class="g">Biosignals</h2>
+  <div class="grid">
+    <a class="card" href="/lab/plux"><span class="no">Device 06</span><h3>biosignalsplux ECG</h3><p>Electrodes, a gain of 1000 and 16-bit sampling: what the hub measures and why sampling rate decides HRV quality.</p><span class="eq">Δt = 1/f<sub>s</sub>,  LSB = VCC/(G·2ⁿ)</span></a>
+  </div>
   <h2 class="g">Reality capture</h2>
   <div class="grid">
-    <a class="card" href="/lab/zed2i"><span class="no">Device 06</span><h3>ZED 2i</h3><p>Two eyes 12 cm apart: disparity, depth error and why it grows with distance squared.</p><span class="eq">ΔZ = Z²·Δd / (f·B)</span></a>
-    <a class="card" href="/lab/pro3"><span class="no">Device 07</span><h3>Matterport Pro3</h3><p>LiDAR mirror plus HDR panorama on one turning body: point spacing, and the phantom room behind a mirror.</p><span class="eq">Δθ ≈ 0.27°,  s = r·Δθ</span></a>
-    <a class="card" href="/lab/x5"><span class="no">Device 08</span><h3>Insta360 X5</h3><p>Two 200° fisheye lenses, the overlap band, parallax on close subjects, and px/° for splatting.</p><span class="eq">seam = atan(b/d)·PPD</span></a>
+    <a class="card" href="/lab/zed2i"><span class="no">Device 07</span><h3>ZED 2i</h3><p>Two eyes 12 cm apart: disparity, depth error and why it grows with distance squared.</p><span class="eq">ΔZ = Z²·Δd / (f·B)</span></a>
+    <a class="card" href="/lab/pro3"><span class="no">Device 08</span><h3>Matterport Pro3</h3><p>LiDAR mirror plus HDR panorama on one turning body: point spacing, and the phantom room behind a mirror.</p><span class="eq">Δθ ≈ 0.27°,  s = r·Δθ</span></a>
+    <a class="card" href="/lab/x5"><span class="no">Device 09</span><h3>Insta360 X5</h3><p>Two 200° fisheye lenses, the overlap band, parallax on close subjects, and px/° for splatting.</p><span class="eq">seam = atan(b/d)·PPD</span></a>
   </div>
   <h2 class="s">How to use it in class</h2>
   <ol>
@@ -76,6 +80,7 @@
     <p>HTC Corporation. (n.d.). <i>VIVE Tracker (3.0)</i>. https://shop-us.vive.com/collections/accessories/products/2104002</p>
     <p>Lang, B. (2023, October 5). Meta explains how Quest 3 controllers are tracked without rings. <i>UploadVR</i>. https://www.uploadvr.com/meta-explains-quest-3-controller-tracking/</p>
     <p>Matterport. (n.d.). <i>Matterport Pro3 camera</i>. https://matterport.com/store/product/cam-mc300-x</p>
+    <p>PLUX Wireless Biosignals. (2020). <i>Electrocardiography (ECG) sensor datasheet</i>. https://www.pluxbiosignals.com/products/electrocardiography-ecg-sensor-1</p>
     <p>Stereolabs. (n.d.). <i>ZED 2i</i>. https://www.stereolabs.com/en-at/store/products/zed-2i</p>
     <p>VR &amp; AR Wiki. (n.d.). <i>Magic Leap 2; SteamVR Base Station 2.0; Varjo XR-4</i>. https://vrarwiki.com</p>
     <p>Wikipedia contributors. (2024). Meta Quest 3. In <i>Wikipedia</i>. https://en.wikipedia.org/wiki/Meta_Quest_3</p>
