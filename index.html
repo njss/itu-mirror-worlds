@@ -2425,6 +2425,307 @@ const ADAPT_LESSONS = [
 ];
 
 
+/* ==================================================================
+   OPENUSD, NVIDIA ISAAC and REINFORCEMENT LEARNING LESSONS
+     omni      NVIDIA Omniverse, Isaac Sim and Isaac Lab: who does what
+     usdfirst  Your first USD scene, step by step
+     usdrobot  A small mobile robot in USD: bodies, joints, drives
+     mlagents  Reinforcement learning in Unity 6 with ML-Agents
+   Builds use the rich-plate helpers (bx, cy, sph, triad) and the
+   scope()/person() helpers from part_adapt.js.
+================================================================== */
+Object.assign(REFS, {
+  pixar_usd: 'Pixar Animation Studios. (n.d.). <i>Universal Scene Description (OpenUSD) documentation</i>. https://openusd.org/release/index.html',
+  aousd2023: 'Alliance for OpenUSD. (2023). <i>About the Alliance for OpenUSD</i>. https://aousd.org/',
+  isaacsim2026: 'NVIDIA. (2026). <i>Isaac Sim 6.2 documentation</i>. https://docs.isaacsim.omniverse.nvidia.com/6.2.0/',
+  mittal2023: 'Mittal, M., Yu, C., Yu, Q., Liu, J., Rudin, N., Hoeller, D., Yuan, J. L., Singh, R., Guo, Y., Mazhar, H., Mandlekar, A., Babich, B., State, G., Hutter, M., &amp; Garg, A. (2023). Orbit: A unified simulation framework for interactive robot learning environments. <i>IEEE Robotics and Automation Letters, 8</i>(6), 3740–3747. https://doi.org/10.1109/LRA.2023.3270034',
+  juliani2018: 'Juliani, A., Berges, V.-P., Teng, E., Cohen, A., Harper, J., Elion, C., Goy, C., Gao, Y., Henry, H., Mattar, M., &amp; Lange, D. (2018). <i>Unity: A general platform for intelligent agents</i> (arXiv:1809.02627). arXiv. https://doi.org/10.48550/arXiv.1809.02627',
+  mlagents4: 'Unity Technologies. (2025, September 2). <i>ML-Agents 4.0.0 is now available</i> [Forum post]. Unity Discussions. https://discussions.unity.com/t/ml-agents-4-0-0-is-now-available/1681770',
+  schulman2017: 'Schulman, J., Wolski, F., Dhariwal, P., Radford, A., &amp; Klimov, O. (2017). <i>Proximal policy optimization algorithms</i> (arXiv:1707.06347). arXiv. https://doi.org/10.48550/arXiv.1707.06347',
+  sutton2018: 'Sutton, R. S., &amp; Barto, A. G. (2018). <i>Reinforcement learning: An introduction</i> (2nd ed.). MIT Press.',
+  siegwart2011: 'Siegwart, R., Nourbakhsh, I. R., &amp; Scaramuzza, D. (2011). <i>Introduction to autonomous mobile robots</i> (2nd ed.). MIT Press.'
+});
+
+// A sheet of paper standing on the plate that shows text (a .usda file, a config…), redrawn on demand.
+function textPanel(c, x, y, z, w, h, ry = 0) {
+  const cv = document.createElement('canvas'); cv.width = 900; cv.height = Math.round(900 * h / w); const g = cv.getContext('2d');
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide }));
+  m.position.set(x, y, z); m.rotation.y = ry; c.root.add(m);
+  bx(c, .08, y - h / 2, .08, x, (y - h / 2) / 2, z - .02, { fill: MC.metal });
+  return {
+    draw(title, lines, hi = -1, hiTo = -1) {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height);
+      g.fillStyle = '#1B2027'; g.font = '600 30px Inter, sans-serif'; g.fillText(title, 30, 46);
+      g.fillStyle = '#DEE3E9'; g.fillRect(30, 62, cv.width - 60, 2);
+      const lh = Math.min(30, (cv.height - 90) / Math.max(1, lines.length)); g.font = `500 ${Math.round(lh * .8)}px "JetBrains Mono", monospace`;
+      lines.forEach((l, i) => {
+        const on = i >= hi && i <= hiTo;
+        if (on) { g.fillStyle = 'rgba(31,99,181,.12)'; g.fillRect(24, 76 + i * lh, cv.width - 48, lh); }
+        g.fillStyle = on ? '#1F63B5' : (l.trim().startsWith('#') || l.trim().startsWith('//') ? '#8E98A4' : '#1B2027');
+        g.fillText(l, 34, 76 + (i + .78) * lh);
+      });
+      tex.needsUpdate = true;
+    }
+  };
+}
+
+const USD_LESSONS = [
+/* ---------------------------------------------------------------- 1 */
+{
+  id: 'omni', phase: 'OpenUSD & NVIDIA Isaac', title: 'NVIDIA Omniverse, Isaac Sim and Isaac Lab: who does what',
+  cam: [5.2, 4.6, 7.6], target: [0, 1.7, 0],
+  body: [
+    'NVIDIA Omniverse is not one program. It is a stack: OpenUSD describes the scene (the same open format Pixar created and the Alliance for OpenUSD now develops), the Kit SDK builds applications on top of it, RTX renders it and PhysX 5 simulates it (Pixar Animation Studios, n.d.; Alliance for OpenUSD, 2023).',
+    'Isaac Sim is the robotics application built on Kit: robot importers (URDF, MJCF), sensors (cameras, LiDAR), ROS 2 bridges and synthetic data with Replicator. Isaac Lab sits on top of Isaac Sim and trains robot policies with reinforcement or imitation learning across thousands of parallel copies on one GPU (Mittal et al., 2023; NVIDIA, 2026). In this course the final twin runs in Unity 6; Isaac is for teaching and exercises.'
+  ],
+  predict: { q: 'You want to train a walking or driving policy with 4,096 robot copies in parallel on one GPU. Which tool is made for that?', options: ['Omniverse USD Composer', 'Isaac Lab', 'Unity 6 with a VR headset'], answer: 1 },
+  test: 'Pick a task and see which layer of the stack does the work, which file format it reads and which language you write.',
+  controls: [
+    { id: 'task', type: 'seg', label: 'Task', options: [['view', 'Assemble a scanned room'], ['sim', 'Simulate the SO-100 with ROS 2'], ['learn', 'Train 4,096 robots'], ['vr', 'VR twin on Quest 3']], value: 'learn' }
+  ],
+  prove: '<p>Each layer adds one capability. OpenUSD is the shared language, so a room built in USD Composer opens in Isaac Sim, and the same stage can be exported to Unity 6. Isaac Sim adds robots and sensors; Isaac Lab adds massively parallel training. Unity 6 has its own learning library, ML-Agents, which is easier to start with but runs far fewer copies in parallel.</p><pre class="eq">OpenUSD   .usd / .usda / .usdc     scene description, layers, physics schemas\nKit SDK   extensions in Python      apps: USD Composer, Isaac Sim\nIsaac Sim robots, sensors, ROS 2    import URDF → USD articulation\nIsaac Lab Python, PyTorch           envs × GPU → policy (.pt / .onnx)\nUnity 6   C#, ML-Agents (PPO, SAC)  policy (.onnx) → Inference Engine</pre><p>Version numbers change often; check the Isaac Sim and Isaac Lab compatibility table before installing.</p>',
+  teacher: {
+    outcomes: ['Place OpenUSD, Kit, Isaac Sim, Isaac Lab and Unity 6 on one map.', 'Choose the right tool for viewing, simulating, training and deploying.'],
+    misconception: 'Omniverse is a game engine like Unity. It is a platform of USD-based apps; Isaac Sim is one of them.',
+    lab: 'Open the same .usd room in USD Composer and Isaac Sim, add a ground plane and a light in each, and compare the saved layers.',
+    fits: 'DigiTech2 Unit 4 · L7 and Unit 7 · L18 (Unity 6 vs IsaacSim)', refs: ['pixar_usd', 'aousd2023', 'isaacsim2026', 'mittal2023']
+  },
+  build(c) {
+    // the stack, bottom to top
+    const L = [
+      ['gpu', 'NVIDIA GPU · RTX + CUDA', MC.black, .25],
+      ['usd', 'OpenUSD · scene, layers, schemas', MC.gold, .75],
+      ['kit', 'Omniverse Kit · RTX renderer · PhysX 5', MC.green, 1.25],
+      ['sim', 'Isaac Sim · robots, sensors, ROS 2, Replicator', MC.servo, 1.75],
+      ['lab', 'Isaac Lab · parallel envs, RL / imitation', MC.violet, 2.25]
+    ];
+    const slab = {};
+    L.forEach(([id, n, col, y], i) => { const w = 4.6 - i * .45; slab[id] = bx(c, w, .38, 2.6 - i * .2, -.9, y, 0, { fill: col }); c.label(n, V(-.9 + w / 2 + .1, y, 1.4 - i * .1), 'm'); });
+    // composer app beside Kit, Unity column on the right, ROS 2 box
+    slab.view = bx(c, 1.1, .38, 1.2, -3.7, 1.25, 0, { fill: MC.amber }); c.label('USD Composer', V(-3.7, 1.65, .7), 'm');
+    slab.vr = bx(c, 1.3, 2.6, 1.6, 3.2, 1.35, 0, { fill: MC.screen, role: 'network' }); c.label('Unity 6 · C# · ML-Agents', V(3.2, 2.95, .8), 'd');
+    const ros = bx(c, 1.0, .5, 1.0, 2.2, .3, 2.6, { fill: MC.white, role: 'network' }); c.label('ROS 2', V(2.2, .75, 3.1), 'm rn'); void ros;
+    c.line([V(.5, 1.75, .9), V(2.2, .55, 2.6)], COL.dim, { dashed: true, opacity: .6 });
+    c.line([V(1.2, .75, 0), V(2.55, 1.0, 0)], COL.dig, { dashed: true, opacity: .6 }); c.label('USD / FBX export', V(1.9, 1.05, .2), 'm');
+    const glow = c.glow(COL.phys, 2.6, V(0, -9, 0));
+    const pos = { view: V(-3.7, 1.25, .7), sim: V(-.9, 1.75, 1.2), learn: V(-.9, 2.25, 1.1), vr: V(3.2, 1.6, .9) };
+    // in "learn" mode a grid of tiny robots appears on top of the stack: parallel environments
+    const envs = new THREE.InstancedMesh(new THREE.BoxGeometry(.06, .05, .08), new THREE.MeshLambertMaterial({ color: COL.dig }), 1024);
+    const m4 = new THREE.Matrix4(); for (let i = 0; i < 1024; i++) { m4.makeTranslation(-2.0 + (i % 32) * .07, 2.48, -1.0 + Math.floor(i / 32) * .065); envs.setMatrixAt(i, m4); } c.root.add(envs);
+    return {
+      update(dt, t, P) {
+        glow.position.copy(pos[P.task]); glow.material.opacity = .55 + .35 * Math.sin(t * 3);
+        envs.visible = P.task === 'learn';
+        if (envs.visible) { for (let i = 0; i < 1024; i++) { m4.makeTranslation(-2.0 + (i % 32) * .07, 2.48 + .02 * Math.sin(t * 6 + i), -1.0 + Math.floor(i / 32) * .065); envs.setMatrixAt(i, m4); } envs.instanceMatrix.needsUpdate = true; }
+      },
+      readouts(P) {
+        const R = {
+          view: ['USD Composer (Omniverse Kit app)', '.usd layers', 'Python (Kit extensions), no code needed'],
+          sim: ['Isaac Sim', 'URDF → USD articulation', 'Python (omni.isaac / isaacsim API), ROS 2'],
+          learn: ['Isaac Lab on Isaac Sim', 'USD robot + task config', 'Python, PyTorch (RSL-RL, skrl, rl_games, SB3)'],
+          vr: ['Unity 6 (your final twin)', 'USD / FBX import, prefabs', 'C#, ML-Agents for learning']
+        }[P.task];
+        return [['Tool', R[0], 'd'], ['Reads', R[1]], ['You write', R[2]], ['GPU parallel envs', P.task === 'learn' ? 'thousands' : P.task === 'vr' ? 'tens (ML-Agents)' : '—', 'p']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 2 */
+{
+  id: 'usdfirst', phase: 'OpenUSD & NVIDIA Isaac', title: 'Your first USD scene, step by step',
+  cam: [4.4, 4.2, 7.6], target: [0, 1.2, 0],
+  body: [
+    'A USD file holds a stage: a tree of prims (scene objects) under a root such as /World. Each prim has a type (Xform, Mesh, Cube, DistantLight, Camera) and attributes. Position, rotation and scale are not baked into the geometry; they are xformOps on the prim, so moving an object is changing one attribute (Pixar Animation Studios, n.d.).',
+    'Two stage settings cause most import surprises: upAxis (Y in Unity, usually Z in Isaac Sim) and metersPerUnit (1.0 for metres, 0.01 for centimetres). Write them explicitly in your first line of metadata and every tool will agree on what "up" and "1" mean.'
+  ],
+  predict: { q: 'In your USD stage the cube sits 0.5 m above the floor. Where is that 0.5 stored?', options: ['In the cube\'s vertex positions', 'In an xformOp:translate attribute on the cube prim', 'In a separate .json file next to the stage'], answer: 1 },
+  test: 'Step through building the stage. The highlighted lines are what each step adds to the .usda file. Then change metersPerUnit and the cube height.',
+  controls: [
+    { id: 'step', type: 'range', label: 'Build step', min: 1, max: 6, step: 1, value: 6, fmt: v => ['', '1 · stage + /World', '2 · ground', '3 · cube', '4 · material', '5 · light', '6 · camera'][v] },
+    { id: 'h', type: 'range', label: 'Cube translate y', min: .25, max: 1.5, step: .05, value: .5, fmt: v => v.toFixed(2) },
+    { id: 'mpu', type: 'seg', label: 'metersPerUnit', options: [['1', '1.0 (metres)'], ['0.01', '0.01 (centimetres)']], value: '1' }
+  ],
+  prove: '<p>The cube\'s mesh never changes; its height is the translate xformOp on /World/Cube. The same number means 0.5 m with metersPerUnit = 1, but 0.5 cm with 0.01, so a tool that ignores the metadata imports your scene 100 times too big or too small. Python with the pxr module writes exactly the same file.</p><pre class="eq">from pxr import Usd, UsdGeom, UsdLux, UsdShade, Sdf, Gf\nstage = Usd.Stage.CreateNew("first.usda")\nUsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.y)\nUsdGeom.SetStageMetersPerUnit(stage, 1.0)\nworld = UsdGeom.Xform.Define(stage, "/World")\nstage.SetDefaultPrim(world.GetPrim())\nground = UsdGeom.Mesh.Define(stage, "/World/Ground")   # a 10 × 10 m quad\ncube = UsdGeom.Cube.Define(stage, "/World/Cube")\ncube.CreateSizeAttr(0.5)\ncube.AddTranslateOp().Set(Gf.Vec3d(0, 0.5, 0))\nmat = UsdShade.Material.Define(stage, "/World/Looks/Orange")\nsh = UsdShade.Shader.Define(stage, "/World/Looks/Orange/PBR")\nsh.CreateIdAttr("UsdPreviewSurface")\nsh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set((0.9, 0.45, 0.1))\nmat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")\nUsdShade.MaterialBindingAPI.Apply(cube.GetPrim()).Bind(mat)\nUsdLux.DistantLight.Define(stage, "/World/Sun").CreateIntensityAttr(3000)\nUsdGeom.Camera.Define(stage, "/World/Camera").AddTranslateOp().Set(Gf.Vec3d(3, 2, 5))\nstage.Save()</pre><p>Isaac Sim stages are usually Z-up; set upAxis to match the tool you author in, and let the importer convert.</p>',
+  teacher: {
+    outcomes: ['Write a minimal USD stage by hand and in Python.', 'Explain prims, xformOps, upAxis and metersPerUnit.'],
+    misconception: 'USD is a mesh format like OBJ. It is a scene description with hierarchy, transforms, materials, lights, cameras and layers.',
+    lab: 'pip install usd-core; run the script, open first.usda in a text editor, USD Composer or Isaac Sim, then change metersPerUnit and reopen.',
+    fits: 'DigiTech2 Unit 4 · L7 (Unity 6 / IsaacSim intro, OpenUSD import)', refs: ['pixar_usd', 'aousd2023']
+  },
+  build(c) {
+    const panel = textPanel(c, -2.9, 1.85, -.9, 3.2, 3.2, .55);
+    const world = new THREE.Group(); world.position.set(1.0, 0, 0); c.root.add(world);
+    const ax = triad(c, world, .9); void ax;
+    c.label('/World', V(1.0, .1, 1.2), 'm');
+    const ground = c.ink(new THREE.BoxGeometry(4, .04, 4).translate(0, -.02, 0), { fill: MC.stone, line: COL.dim }, world);
+    const cube = c.ink(new THREE.BoxGeometry(1, 1, 1), { fill: MC.white, line: COL.chalk }, world);
+    const cubeLbl = c.label('/World/Cube', V(1.0, 1.4, 0), 'd');
+    const sun = new THREE.Group(); sun.position.set(-1.2, 3.2, -1.2); world.add(sun);
+    c.ink(new THREE.SphereGeometry(.18, 16, 12), { fill: MC.sun }, sun); c.line([V(-.2, 3.0, -1.4), V(.8, 1.0, .2)], MC.sun, { dashed: true, opacity: .7 });
+    const camG = new THREE.Group(); camG.position.set(1.6, 1.4, 1.7); camG.lookAt(1.0, .4, 0); world.add(camG);
+    c.ink(new THREE.BoxGeometry(.4, .3, .3), { fill: MC.black, role: 'sensor' }, camG); c.ink(new THREE.CylinderGeometry(.09, .12, .2, 12).rotateX(Math.PI / 2).translate(0, 0, -.22), { fill: MC.metal }, camG);
+    const camF = c.line([V(0, 0, 0), V(-.6, .4, -1.4), V(.6, .4, -1.4), V(0, 0, 0), V(.6, -.4, -1.4), V(-.6, -.4, -1.4), V(0, 0, 0)], COL.dig, { opacity: .5 }, camG); void camF;
+    const LINES = (P) => {
+      const mpu = P.mpu === '1' ? '1' : '0.01';
+      return [
+        '#usda 1.0', '(', '    defaultPrim = "World"', '    upAxis = "Y"', `    metersPerUnit = ${mpu}`, ')',
+        'def Xform "World"', '{',
+        '    def Mesh "Ground" { … 10 × 10 quad … }',
+        '    def Cube "Cube"', '    {', '        double size = 0.5', `        double3 xformOp:translate = (0, ${P.h.toFixed(2)}, 0)`, '        uniform token[] xformOpOrder = ["xformOp:translate"]',
+        '        rel material:binding = </World/Looks/Orange>', '    }',
+        '    def Scope "Looks" { def Material "Orange" { … UsdPreviewSurface … } }',
+        '    def DistantLight "Sun" { float inputs:intensity = 3000 }',
+        '    def Camera "Camera" { double3 xformOp:translate = (3, 2, 5) }', '}'
+      ];
+    };
+    const RANGES = { 1: [0, 7], 2: [8, 8], 3: [9, 13], 4: [14, 16], 5: [17, 17], 6: [18, 18] };
+    let key = '';
+    return {
+      update(dt, t, P) {
+        const s = P.step, cm = P.mpu !== '1';
+        ground.visible = s >= 2; cube.visible = s >= 3; sun.visible = s >= 5; camG.visible = s >= 6;
+        // the size is 0.5 stage units; with metersPerUnit 0.01 a units-ignorant importer shows it 100× too small
+        const k = cm ? .03 : 1;
+        cube.scale.setScalar(.5 * 2 * k); cube.position.y = P.h * 2 * k;
+        cube.userData.fill.material.color.setHex(s >= 4 ? 0xE6731A : MC.white);
+        cubeLbl.pos.set(1.0, P.h * 2 * k + .8, 0); cubeLbl.el.style.display = s >= 3 ? '' : 'none';
+        const kk = s + '|' + P.h + '|' + P.mpu;
+        if (kk !== key) { key = kk; const L = LINES(P); const shown = L.slice(0, s === 1 ? 8 : 20); if (s === 1) shown.push('}'); const [a, b] = RANGES[s]; panel.draw('first.usda', shown, a, b); }
+      },
+      readouts(P) {
+        const n = [0, 1, 2, 3, 6, 7, 8][P.step];
+        return [['Prims on the stage', String(n), 'd'], ['Cube height', P.mpu === '1' ? (P.h).toFixed(2) + ' m' : (P.h).toFixed(2) + ' cm (!)', P.mpu === '1' ? 'd' : 'p'],
+          ['upAxis', 'Y (Unity); Isaac Sim stages are usually Z'], ['Cube moves by', 'xformOp:translate, not vertices']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 3 */
+{
+  id: 'usdrobot', phase: 'OpenUSD & NVIDIA Isaac', title: 'A small mobile robot in USD: bodies, joints, drives',
+  cam: [4.6, 7.6, 10.4], target: [-.3, .7, -.6],
+  body: [
+    'A mobile robot in USD is a small tree of prims with physics schemas. The chassis gets RigidBodyAPI, CollisionAPI, MassAPI and ArticulationRootAPI; each wheel is its own rigid body; a RevoluteJoint connects each wheel to the chassis, and a DriveAPI on the joint sets a target angular velocity, just like a motor (NVIDIA, 2026).',
+    'With two driven wheels and a caster this is a differential-drive robot. Its motion follows from the wheel speeds: equal speeds drive straight, unequal speeds turn, opposite speeds spin on the spot (Siegwart et al., 2011). The same model drives a TurtleBot, a vacuum robot or a warehouse cart.'
+  ],
+  predict: { q: 'Wheel radius 3.5 cm, wheel separation 16 cm. The left wheel turns at 2 rad/s and the right at 4 rad/s. What does the robot do?', options: ['Drives straight ahead', 'Curves to the left in a circle of about 24 cm radius', 'Spins on the spot'], answer: 1 },
+  test: 'Set the two wheel velocities (the DriveAPI targets). The trail shows the path; the panel shows the USD prims and schemas you would write.',
+  controls: [
+    { id: 'wl', type: 'range', label: 'Left wheel target velocity', min: -10, max: 10, step: .5, value: 2, fmt: v => v.toFixed(1) + ' rad/s' },
+    { id: 'wr', type: 'range', label: 'Right wheel target velocity', min: -10, max: 10, step: .5, value: 4, fmt: v => v.toFixed(1) + ' rad/s' },
+    { id: 'joints', type: 'toggle', label: 'Show joints and axes', value: true }
+  ],
+  prove: '<p>The robot\'s forward speed is the mean wheel speed, and its turn rate is the difference divided by the wheel separation. With 2 and 4 rad/s: v = 0.035·3 = 0.105 m/s, ω = 0.035·2/0.16 = 0.44 rad/s, radius v/ω = 0.24 m, turning left because the right wheel is faster. In USD the drive targets are in degrees per second.</p><pre class="eq">v = r (ω_R + ω_L) / 2        ω = r (ω_R − ω_L) / L        R = v / ω\n\nfrom pxr import UsdPhysics, Gf\nchassis = stage.GetPrimAtPath("/World/Robot/Chassis")\nfor api in (UsdPhysics.RigidBodyAPI, UsdPhysics.CollisionAPI, UsdPhysics.MassAPI):\n    api.Apply(chassis)\nUsdPhysics.ArticulationRootAPI.Apply(stage.GetPrimAtPath("/World/Robot"))\nj = UsdPhysics.RevoluteJoint.Define(stage, "/World/Robot/LeftWheelJoint")\nj.CreateBody0Rel().SetTargets(["/World/Robot/Chassis"])\nj.CreateBody1Rel().SetTargets(["/World/Robot/LeftWheel"])\nj.CreateAxisAttr("Y")                       # wheel axle\nd = UsdPhysics.DriveAPI.Apply(j.GetPrim(), "angular")\nd.CreateStiffnessAttr(0.0)                  # velocity drive: no position spring\nd.CreateDampingAttr(1e4)\nd.CreateTargetVelocityAttr(2.0 * 57.2958)   # rad/s → deg/s</pre><p>The joint frames (localPos0/1, localRot0/1) that place each wheel are omitted here for brevity. Isaac Sim\'s differential controller computes the two wheel targets from a desired v and ω for you.</p>',
+  teacher: {
+    outcomes: ['Describe a mobile robot as USD prims with physics schemas.', 'Compute v, ω and turning radius from wheel speeds.'],
+    misconception: 'You move a simulated robot by setting its position. With physics you command joint drives and let the solver move it.',
+    lab: 'In Isaac Sim build the robot from primitives (cube chassis, two cylinder wheels, sphere caster), add the schemas and drives, then drive a square with the differential controller and record the path.',
+    fits: 'DigiTech2 Unit 4 · L7–9 and Unit 5 · L11 (IsaacSim, ROS 2)', refs: ['pixar_usd', 'isaacsim2026', 'siegwart2011']
+  },
+  build(c) {
+    const R = .035, Lw = .16, S = 9;                         // real wheel radius and separation; plate units per metre
+    bx(c, 8, .04, 8, 0, -.02, 0, { fill: MC.stone, line: COL.dim, fillOpacity: .5 });
+    const panel = textPanel(c, -2.4, 1.9, -3.4, 3.4, 2.8, .3);
+    panel.draw('robot.usda · prims and schemas', [
+      'def Xform "Robot"   (ArticulationRootAPI)', '    def Cube "Chassis"', '        RigidBodyAPI, CollisionAPI, MassAPI', '    def Cylinder "LeftWheel"   RigidBodyAPI, CollisionAPI',
+      '    def Cylinder "RightWheel"  RigidBodyAPI, CollisionAPI', '    def Sphere "Caster"        CollisionAPI (low friction)',
+      '    def PhysicsRevoluteJoint "LeftWheelJoint"', '        body0 = Chassis, body1 = LeftWheel, axis = "Y"', '        DriveAPI:angular  targetVelocity (deg/s)',
+      '    def PhysicsRevoluteJoint "RightWheelJoint"  (same)'], 6, 8);
+    const robot = new THREE.Group(); c.root.add(robot);
+    c.ink(new THREE.BoxGeometry(1.5, .35, 1.1).translate(0, .5, 0), { fill: MC.servo, role: 'controller' }, robot);
+    const wheels = [-1, 1].map(s => { const g = new THREE.Group(); g.position.set(0, R * S, s * Lw / 2 * S); robot.add(g); c.ink(new THREE.CylinderGeometry(R * S, R * S, .14, 24).rotateX(Math.PI / 2), { fill: MC.black, role: 'actuator' }, g); c.ink(new THREE.BoxGeometry(.05, R * S * 1.6, .16), { fill: MC.metal }, g); return g; });
+    sph(c, .12, -.6, .12, 0, { fill: MC.metal }, robot);
+    const jointAx = [-1, 1].map(s => c.line([V(0, R * S, s * .25), V(0, R * S, s * 1.1)], AX.y, {}, robot));
+    const jl = c.label('RevoluteJoint · axis Y', V(0, 0, 0), 'm');
+    const N = 400, trail = dynLine(c, N, COL.dig, { opacity: .85 }), hist = [];
+    let x = 0, z = 0, th = 0;
+    return {
+      update(dt, t, P) {
+        const v = R * (P.wr + P.wl) / 2, w = R * (P.wr - P.wl) / Lw;
+        th += w * dt; x += v * Math.cos(th) * dt * S; z -= v * Math.sin(th) * dt * S;
+        if (Math.abs(x) > 3.6 || Math.abs(z) > 3.6) { x = 0; z = 0; th = 0; hist.length = 0; }
+        robot.position.set(x, 0, z); robot.rotation.y = th;
+        wheels[0].rotation.z -= P.wr * dt * 0 + P.wl * dt; wheels[1].rotation.z -= P.wr * dt;
+        hist.push(V(x, .03, z)); if (hist.length > N) hist.shift(); trail.set(hist);
+        jointAx.forEach(l => { l.visible = !!P.joints; }); jl.el.style.display = P.joints ? '' : 'none'; jl.pos.set(x, 1.0, z);
+      },
+      readouts(P) {
+        const v = R * (P.wr + P.wl) / 2, w = R * (P.wr - P.wl) / Lw, rad = Math.abs(w) < 1e-6 ? Infinity : v / w;
+        return [['Forward speed v', v.toFixed(3) + ' m/s', 'd'], ['Turn rate ω', w.toFixed(2) + ' rad/s ' + (w > 0 ? '(left)' : w < 0 ? '(right)' : '')],
+          ['Turning radius', isFinite(rad) ? Math.abs(rad).toFixed(2) + ' m' : 'straight'], ['Drive targets (USD)', (P.wl * 57.3).toFixed(0) + ' / ' + (P.wr * 57.3).toFixed(0) + ' deg/s', 'p']];
+      }
+    };
+  }
+},
+/* ---------------------------------------------------------------- 4 */
+{
+  id: 'mlagents', phase: 'Unity 6 physics', title: 'Reinforcement learning in Unity 6 with ML-Agents',
+  cam: [0.9, 5.6, 9.8], target: [.6, 1.2, 0],
+  body: [
+    'In reinforcement learning an agent observes its situation, chooses an action, and receives a reward; training adjusts a neural-network policy so that the total reward grows (Sutton &amp; Barto, 2018). Unity\'s ML-Agents toolkit turns a Unity 6 scene into a training environment: you write an Agent script in C#, a Python trainer (PPO or SAC) learns the policy, and the result runs back in Unity through the Inference Engine (Juliani et al., 2018; Unity Technologies, 2025).',
+    'Here the mobile robot from the USD lesson learns to drive to a target. What you reward decides what it learns: a reward only on arrival (sparse) gives almost no signal in a large arena, while a small reward for getting closer (dense) guides it, but can also be gamed. Running several copies of the arena in parallel collects experience faster.'
+  ],
+  predict: { q: 'In a large arena, which reward usually makes the robot learn to reach the target in fewer training steps?', options: ['+1 only when it reaches the target (sparse)', 'A small reward for every step that brings it closer, plus +1 at the target (dense)', 'Both learn equally fast'], answer: 1 },
+  test: 'Choose the reward design and the number of parallel arenas, then train for longer. Watch the learning curve and how the robot drives.',
+  controls: [
+    { id: 'rew', type: 'seg', label: 'Reward', options: [['sparse', 'Sparse (+1 at target)'], ['dense', 'Dense (closer = +)'], ['time', 'Dense + time penalty']], value: 'dense' },
+    { id: 'envs', type: 'seg', label: 'Parallel arenas', options: [['1', '1'], ['8', '8'], ['32', '32']], value: '8' },
+    { id: 'min', type: 'range', label: 'Training time', min: 0, max: 60, step: 1, value: 20, fmt: v => v + ' min' }
+  ],
+  prove: '<p>With a sparse reward the robot only learns once random driving happens to hit the target, which is rare in a large arena, so the curve stays flat for a long time. Dense shaping gives feedback on every step; a small time penalty also teaches it to hurry. More arenas collect more steps per minute, so the same curve is reached sooner in wall-clock time.</p><pre class="eq">// C# (Unity 6, com.unity.ml-agents)\npublic class DriveAgent : Agent {\n  public Transform target; Rigidbody rb;\n  public override void OnEpisodeBegin() { /* reset robot and target */ }\n  public override void CollectObservations(VectorSensor s) {\n    s.AddObservation(transform.InverseTransformPoint(target.position)); // 3\n    s.AddObservation(rb.linearVelocity);                               // 3\n  }\n  public override void OnActionReceived(ActionBuffers a) {\n    float wl = a.ContinuousActions[0], wr = a.ContinuousActions[1];   // wheel speeds\n    Drive(wl, wr);\n    float d = Vector3.Distance(transform.position, target.position);\n    AddReward(0.01f * (lastD - d)); lastD = d;   // dense shaping\n    AddReward(-0.001f);                         // time penalty\n    if (d &lt; 0.2f) { AddReward(1f); EndEpisode(); }\n  }\n}\n# terminal\nmlagents-learn config/drive.yaml --run-id=drive01     # trainer_type: ppo</pre><p>The learning curves are a teaching model (exponential approach with reward-dependent time constants), not a real training run.</p>',
+  teacher: {
+    outcomes: ['Name observations, actions and rewards for a robot task.', 'Set up ML-Agents training in Unity 6 and explain reward shaping and parallel environments.'],
+    misconception: 'More reward terms are always better. Shaping can be exploited: a robot rewarded for "getting closer" may learn to circle the target.',
+    lab: 'Install com.unity.ml-agents and the mlagents Python package, train the DriveAgent with PPO for 20 minutes with 1 and 8 arenas, compare curves in TensorBoard, and run the .onnx policy in VR.',
+    fits: 'DigiTech2 Unit 6 · L13–14 (Unity 6) and Unit 7 · L18', refs: ['juliani2018', 'mlagents4', 'schulman2017', 'sutton2018']
+  },
+  build(c) {
+    bx(c, 5.2, .04, 4.2, 1.6, -.02, .6, { fill: MC.stone, line: COL.dim, fillOpacity: .55 });
+    [[1.6, -1.5, 5.2, .1], [1.6, 2.7, 5.2, .1], [-1.0, .6, .1, 4.2], [4.2, .6, .1, 4.2]].forEach(([x, z, w, d]) => bx(c, w, .3, d, x, .15, z, { fill: MC.wall }));
+    const target = c.glow(COL.phys, 1.2, V(3.4, .2, -.6)); cy(c, .25, .25, .04, 3.4, .02, -.6, { fill: MC.amber }, undefined, 24); void target;
+    const robot = new THREE.Group(); c.root.add(robot);
+    c.ink(new THREE.BoxGeometry(.5, .2, .38).translate(0, .2, 0), { fill: MC.servo, role: 'controller' }, robot);
+    [-1, 1].forEach(s => c.ink(new THREE.CylinderGeometry(.11, .11, .06, 16).rotateX(Math.PI / 2).translate(0, .11, s * .22), { fill: MC.black }, robot));
+    const ray = c.line([V(0, .25, 0), V(1, .25, 0)], COL.dig, { dashed: true, opacity: .6 }, robot); void ray;
+    const map = scope(c, -2.0, 2.3, -1.0, 3.4, 2.0, 'mean reward per episode');
+    const curve = dynLine(c, 120, COL.dig, { opacity: .95 }), cursor = c.glow(COL.phys, .5, V(0, -9, 0));
+    const N = 160, trail = dynLine(c, N, COL.phys, { opacity: .6 }), hist = [];
+    let ep = 0, et = 0, px = -.2, pz = 2.0, th = 0, key = '';
+    const rate = 300;                                        // agent decisions per second per arena (teaching value)
+    const tau = { sparse: 15e6, dense: 3e6, time: 2.5e6 };
+    const prog = (steps, P) => 1 - Math.exp(-steps / tau[P.rew]);
+    return {
+      update(dt, t, P) {
+        const stepsAt = m => m * 60 * rate * (+P.envs);
+        const k = P.rew + '|' + P.envs; if (k !== key) { key = k;
+          curve.set(Array.from({ length: 120 }, (_, i) => { const m = i / 119 * 60, p = prog(stepsAt(m), P); return map(i / 119, -1 + 1.9 * p); })); }
+        const p = prog(stepsAt(P.min), P);
+        cursor.position.copy(map(P.min / 60, -1 + 1.9 * p));
+        // drive: a learned policy heads to the target; untrained = random wandering
+        et += dt;
+        const tx = 3.4, tz = -.6, want = Math.atan2(-(tz - pz), tx - px);
+        let err = want - th; while (err > Math.PI) err -= 2 * Math.PI; while (err < -Math.PI) err += 2 * Math.PI;
+        const noise = (1 - p) * 3.2 * Math.sin(t * 2.3 + ep * 1.7) + (1 - p) * 2 * Math.sin(t * 5.1 + ep);
+        th += (p * 2.5 * err + noise) * dt;
+        const sp = .9 + .6 * p;
+        px += Math.cos(th) * sp * dt; pz -= Math.sin(th) * sp * dt;
+        px = clamp(px, -.8, 4.0); pz = clamp(pz, -1.3, 2.5);
+        const hit = Math.hypot(tx - px, tz - pz) < .3;
+        if (hit || et > 9) { ep++; et = 0; px = -.2 + Math.sin(ep * 2.1) * .3; pz = 2.0; th = Math.sin(ep) * .5; hist.length = 0; }
+        robot.position.set(px, 0, pz); robot.rotation.y = th;
+        hist.push(V(px, .04, pz)); if (hist.length > N) hist.shift(); trail.set(hist);
+      },
+      readouts(P) {
+        const steps = P.min * 60 * rate * (+P.envs), p = prog(steps, P);
+        return [['Agent steps collected', (steps / 1e6).toFixed(2) + ' M', 'd'], ['Success rate (model)', Math.round(p * 100) + ' %', p < .5 ? 'p' : 'd'],
+          ['Reward', { sparse: '+1 at target only', dense: 'Δdistance each step, +1 at target', time: 'dense − 0.001 per step' }[P.rew]], ['Trainer', 'PPO (mlagents-learn)']];
+      }
+    };
+  }
+}
+];
+
 
 /* ==================================================================
    COMPUTER VISION lessons + topic structure
@@ -2811,8 +3112,8 @@ const TOPICS = [
   { id: 'foundations', name: 'Foundations', ids: ['twin'] },
   { id: 'capture', name: 'Reality capture', ids: ['lidar', 'splats', 'gsanat'] },
   { id: 'vision', name: 'Computer vision', ids: ['pixels', 'edges', 'camera', 'detect', 'stereo'] },
-  { id: 'interop', name: 'Interoperability', ids: ['usd'] },
-  { id: 'unity', name: 'Unity 6 physics', ids: ['colliders', 'rigid'] },
+  { id: 'interop', name: 'OpenUSD & NVIDIA Isaac', ids: ['omni', 'usdfirst', 'usd', 'usdrobot'] },
+  { id: 'unity', name: 'Unity 6 physics & RL', ids: ['colliders', 'rigid', 'mlagents'] },
   { id: 'robotics', name: 'Robotics', ids: ['arm', 'ros2'] },
   { id: 'iot', name: 'IoT', ids: ['mqtt', 'farm', 'solar'] },
   { id: 'kit', name: 'Smart farm kit', ids: ['kitpins', 'kitadc', 'kitpump', 'kitclimate', 'kitdoor', 'kitweb'] },
@@ -2821,7 +3122,7 @@ const TOPICS = [
   { id: 'validation', name: 'Twin data & validation', ids: ['bidir', 'sync'] }
 ];
 (function orderByTopic() {
-  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS, ADAPT_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
+  const byId = {}; LESSONS.concat(CV_LESSONS, KIT_LESSONS, XR_LESSONS, ADAPT_LESSONS, USD_LESSONS).forEach(L => { byId[L.id] = L; if (DEVICE_LINKS[L.id] && !L.device) L.device = DEVICE_LINKS[L.id]; });
   LESSONS.length = 0;
   TOPICS.forEach(t => { t.idx = []; t.ids.forEach((id, k) => { const L = byId[id]; L.topic = t; L.inTopic = k; t.idx.push(LESSONS.length); LESSONS.push(L); }); });
 })();

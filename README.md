@@ -2,7 +2,7 @@
 
 An interactive 3D book about digital twins, built for the Digital Twins lectures at the RITA Lab – Extended Reality & Digital Twins, IT:U (Interdisciplinary Transformation University Austria), Linz.
 
-33 lessons in 11 topics: Foundations, Reality capture, Computer vision, Interoperability, Unity 6 physics, Robotics, IoT, Smart farm kit (Keyestudio KS0567), Smart-home kit (Keyestudio KS5009), Adaptive twin (ECG, LSL to MQTT, interaction logging, adaptation rules, user study) and Twin data & validation. Each lesson follows predict → test → prove: students lock in a prediction, test it on an interactive 3D plate, then lift a flap for the answer, equations and code. Teacher's notes and APA 7 references are included.
+37 lessons in 11 topics: Foundations, Reality capture, Computer vision, OpenUSD & NVIDIA Isaac (Omniverse, first USD scene, layers, a mobile robot), Unity 6 physics & RL (ML-Agents), Robotics, IoT, Smart farm kit (Keyestudio KS0567), Smart-home kit (Keyestudio KS5009), Adaptive twin (ECG, LSL to MQTT, interaction logging, adaptation rules, user study) and Twin data & validation. Each lesson follows predict → test → prove: students lock in a prediction, test it on an interactive 3D plate, then lift a flap for the answer, equations and code. Teacher's notes and APA 7 references are included.
 
 Two display modes:
 - **3D book**: an open book with pop-up ink diagrams and turning pages
