@@ -20,11 +20,11 @@ const lab = new Lab({
   prompt: 'a pocket 360 camera with two fisheye lenses: where does the stitch line come from?',
   no: 8, title: 'Insta360 X5', sub: 'dual fisheye 360',
   size: 0.42,
-  view: { az: 38, el: 10, dist: 1.7, target: [0.06, 0.24, 0], fov: 30 },
+  view: { az: 38, el: 12, dist: 1.9, target: [0.06, 0.27, 0], fov: 30 },
   cut: { a: [1, 0, 0], b: [0, 1, 0], center: [0, CY, 0], reach: 0.3 },
   pills: ['360 video', 'Stitching', 'WebXR'],
 })
-chrome('X5')
+chrome('x5')
 
 const bodyM = MAT.plastic({ color: [0.03, 0.03, 0.033], roughness: 0.5 })
 const gripM = MAT.rubber({ color: [0.04, 0.04, 0.045] })
@@ -67,16 +67,35 @@ for (const s of [-1, 1]) {
   lenses.push(g)
 }
 // the stitch line: a glowing ring in the plane between the lenses where the two images meet (overlap band)
-const seam = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.0012, 8, 96), new THREE.MeshBasicMaterial({ color: 0xE69F00, transparent: true, opacity: 0.85, toneMapped: false }))
+const seam = new THREE.Mesh(new THREE.TorusGeometry(0.0755, 0.0009, 8, 128), new THREE.MeshBasicMaterial({ color: 0xE69F00, transparent: true, opacity: 0.85, toneMapped: false }))
 seam.position.set(0, CY, 0); seam.layers.set(1); lab.fx.add(seam)
-const band = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 96, 1, true), new THREE.MeshBasicMaterial({ color: 0xE69F00, transparent: true, opacity: 0.1, side: THREE.DoubleSide, toneMapped: false, depthWrite: false }))
-band.rotation.x = Math.PI / 2; band.position.set(0, CY, 0); band.layers.set(1); lab.fx.add(band)
+// what each lens sees: a cap of 200 deg (100 deg from its axis), front lens blue, rear lens orange.
+// Where the two caps overlap (a 20 deg band around the waist) the stitcher blends the images.
+const capG = new THREE.SphereGeometry(0.075, 64, 24, 0, Math.PI * 2, 0, THREE.MathUtils.degToRad(100))
+const caps = [[1, 0x0072B2], [-1, 0xE69F00]].map(([sz, col]) => {
+  const m = new THREE.Mesh(capG, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }))
+  m.rotation.x = sz * Math.PI / 2; m.position.set(0, CY, 0); m.layers.set(1); m.renderOrder = 3; lab.fx.add(m); return m
+})
+void caps
 // a subject (a little person marker) standing on the stitch line at the chosen distance (drawn compressed)
 const subj = new THREE.Group()
-subj.add(new THREE.Mesh(GEO.tube(0.012, 0, 0.12), MAT.paint({ color: [0.0, 0.45, 0.7] })))
-subj.children[0].position.y = 0.06
-const headS = new THREE.Mesh(new THREE.SphereGeometry(0.014, 24, 16), MAT.paint({ color: [0.0, 0.45, 0.7] })); headS.position.y = 0.135; subj.add(headS)
-lab.add(subj, { name: 'Subject on the stitch line', label: 'Subject', value: () => `${fmt(dist.value, 1)} m (drawn closer)` })
+subj.add(new THREE.Mesh(GEO.tube(0.007, 0, 0.06), MAT.paint({ color: [0.0, 0.45, 0.7] })))
+subj.children[0].position.y = 0.03
+const headS = new THREE.Mesh(new THREE.SphereGeometry(0.008, 24, 16), MAT.paint({ color: [0.0, 0.45, 0.7] })); headS.position.y = 0.068; subj.add(headS)
+lab.add(subj, { name: 'Subject on the stitch line', label: 'Subject', value: () => `${fmt(dist.value, 1)} m · see the ruler` })
+// printed ruler on the floor along +x: real distance on a log scale (the subject is drawn closer)
+const ruler = (() => {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 160; const g = c.getContext('2d')
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 1024, 160); g.fillStyle = '#1B2027'; g.font = '600 34px Inter, sans-serif'
+  const X = (m) => 40 + 944 * Math.log(m / 0.15) / Math.log(10 / 0.15)
+  g.fillRect(40, 70, 944, 4)
+  for (const [m, t] of [[0.15, '15 cm'], [0.3, '30 cm'], [0.5, '0.5 m'], [1, '1 m'], [2, '2 m'], [5, '5 m'], [10, '10 m']]) { g.fillRect(X(m) - 2, 50, 4, 40); g.fillText(t, Math.min(1018 - g.measureText(t).width, Math.max(6, X(m) - g.measureText(t).width / 2)), 130) }
+  g.fillStyle = '#5E6773'; g.font = '500 24px Inter, sans-serif'; g.fillText('real subject distance (log scale)', 40, 36)
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.019), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 }))
+  m.rotation.x = -Math.PI / 2; m.position.set(0.14, 0.0008, 0.03); return m
+})()
+lab.add(ruler, { name: 'Distance ruler (log scale)' })
 const rays = [-1, 1].map((s) => { const l = polyline([[0, CY, s * BZ / 2], [0.2, 0.1, 0]], s > 0 ? 0x0072B2 : 0xD55E00, 0.9); lab.fx.add(l); return l })
 
 // ---------------------------------------------------------------- solver
@@ -94,17 +113,16 @@ lab.onTick((dt, l, rdt) => {
   // place the subject on the seam plane (x axis), drawn between 0.08 and 0.2 m away
   const xs = lerp(0.08, 0.2, Math.log(d / 0.15) / Math.log(10 / 0.15))
   lab.place(subj, xs, 0.0, 0)
-  for (const [i, r] of rays.entries()) { const p = r.geometry.attributes.position; p.setXYZ(0, 0, CY, (i ? 1 : -1) * BZ / 2); p.setXYZ(1, xs, 0.135, 0); p.needsUpdate = true }
+  for (const [i, r] of rays.entries()) { const p = r.geometry.attributes.position; p.setXYZ(0, 0, CY, (i ? 1 : -1) * BZ / 2); p.setXYZ(1, xs, 0.068, 0); p.needsUpdate = true }
   seam.material.color.setHex(seamPx > 40 ? 0xD55E00 : 0xE69F00)
-  band.scale.y = clamp(seamPx / 10, 0.5, 2.5)
-  lab.setHero(seamPx, {
+    lab.setHero(seamPx, {
     state: seamPx < 8 ? 'blends cleanly' : seamPx < 40 ? 'optical-flow stitching hides it' : 'ghosting / cut-off',
     sub: `${mname}: ${fmt(ppd, 1)} px/° · overlap band ${fmt(overlap)}° · parallax ${fmt(par, 2)}° from lenses ${fmt(NODAL * 1000)} mm apart`,
     bad: seamPx > 40,
   })
 })
 lab.breakIt({ label: 'Too close', run: () => { tooClose = true }, reset: () => { tooClose = false } })
-lab.how(`Each fisheye lens sees a bit more than a hemisphere (about 200°), so the two images share a <b>20° overlap band</b> around the camera's waist. The stitching software blends them there into one <b>equirectangular</b> frame, 7680 px wide in 8K: about 21 px per degree. The two lenses are about 3 cm apart, though, so a nearby subject on the seam is seen from two slightly different places (<b>parallax</b>). The two images then disagree by atan(b/d). Optical-flow stitching warps away moderate disagreement, but beyond a few dozen pixels the seam shows doubled or cut-off edges. Far subjects line up; keep people at least about 1 m away and turned toward a lens. The stick sits in the lens' blind spot and is stitched out. For <b>Gaussian splatting</b> and photogrammetry, 360 frames are often split into perspective views; the px/° figure tells you how much detail each view can hold. The 30 mm nodal distance is a teaching estimate.` +
+lab.how(`Each fisheye lens sees a bit more than a hemisphere (about 200°, the blue and orange caps), so the two images share a <b>20° overlap band</b> around the camera's waist. The stitching software blends them there into one <b>equirectangular</b> frame, 7680 px wide in 8K: about 21 px per degree. The two lenses are about 3 cm apart, though, so a nearby subject on the seam is seen from two slightly different places (<b>parallax</b>). The two images then disagree by atan(b/d). Optical-flow stitching warps away moderate disagreement, but beyond a few dozen pixels the seam shows doubled or cut-off edges. Far subjects line up; keep people at least about 1 m away and turned toward a lens. The stick sits in the lens' blind spot and is stitched out. For <b>Gaussian splatting</b> and photogrammetry, 360 frames are often split into perspective views; the px/° figure tells you how much detail each view can hold. The 30 mm nodal distance is a teaching estimate.` +
   refsHTML(['Insta360. (2025). <i>Insta360 X5</i> [Product specifications]. https://www.insta360.com/product/insta360-x5', 'Carter, J. (2025). Insta360 X5 review. <i>TechRadar</i>. https://www.techradar.com/cameras/360-cameras/insta360-x5-review', 'Szeliski, R. (2022). <i>Computer vision: Algorithms and applications</i> (2nd ed.). Springer. https://szeliski.org/Book/']),
   ['PPD = W<sub>equirect</sub> / 360°', 'overlap = FOV<sub>lens</sub> − 180°', 'parallax = atan(b / d)', 'seam disparity ≈ parallax · PPD  px', 'clean < 8 px · flow-stitched < 40 px (teaching thresholds)'])
 addXR(lab, { mag: 3, yaw: 90, tips: ['MR tip: hold a real X5 at the same height and compare'] })

@@ -8,89 +8,91 @@
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Mirror Worlds</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Zilla+Slab:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
 /* Layout: a 3D open book lying under a desk lamp fills the screen; a paper "work card" for predict/test/prove is docked on the right (stacks under the book on phones). Single committed look: dark desk, warm lamp pool, cream paper. */
 :root{
-  --desk:#0D0B10; --lamp:#3B2E20; --lamp-2:#1C1612; --bar-line:#2C2620;
-  --paper:#F2EBDC; --paper-2:#E7DECB; --ink:#262A30; --ink-soft:#6B6458; --rule:#CFC5B0;
-  --phys:#B85A0E; --dig:#2466B0; --chalk:#EFE7D6; --chalk-dim:#6B6458; --bar-text:#CFC4B0; --bar-dim:#8F8473;
-  --glow-p:#E07A1F; --glow-d:#2F78C8;
-  --f-display:"Zilla Slab", Rockwell, "Roboto Slab", Georgia, serif;
-  --f-body:"Literata", Georgia, "Times New Roman", serif;
-  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
-  --f-hand:"Caveat", "Segoe Print", "Bradley Hand", cursive;
-  color-scheme: dark;
+  /* clean white + cool grey; orange = physical world, blue = digital model (kept from the first version) */
+  --desk:#E3E7EC; --lamp:#FFFFFF; --lamp-2:#EEF1F5; --bar-line:#D5DBE2;
+  --paper:#FFFFFF; --paper-2:#F3F5F8; --ink:#1B2027; --ink-soft:#5E6773; --rule:#DEE3E9;
+  --phys:#C2610C; --dig:#1F63B5; --chalk:#1B2027; --chalk-dim:#5E6773; --bar-text:#3A434E; --bar-dim:#6B7581;
+  --glow-p:#E07A1F; --glow-d:#2F78C8; --plate-text:#E6EAF0;
+  --f-display:"Instrument Serif", Georgia, serif;
+  --f-body:Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --f-hand:Inter, system-ui, sans-serif;
+  color-scheme: light;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--desk);color:var(--bar-text);font-family:var(--f-body);overflow:hidden}
 :focus-visible{outline:2px solid var(--glow-d);outline-offset:2px}
-.app{position:relative;height:100%;background:radial-gradient(ellipse 58% 62% at 40% 52%, var(--lamp) 0%, var(--lamp-2) 48%, var(--desk) 100%)}
+.app{position:relative;height:100%;background:radial-gradient(ellipse 62% 66% at 40% 52%, var(--lamp) 0%, var(--lamp-2) 50%, var(--desk) 100%)}
 #stage{position:absolute;inset:0}
 #stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 #stage canvas:active{cursor:grabbing}
 
 /* top bar floats over the desk */
 .top{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;
-  padding-block:12px 8px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));pointer-events:none}
+  padding-block:10px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));pointer-events:none;
+  background:rgba(255,255,255,.86);-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--bar-line)}
 .top > *{pointer-events:auto}
 .brand{display:flex;flex-direction:column;gap:3px}
-.brand h1{font-family:var(--f-display);font-weight:700;font-size:1.65rem;line-height:1;margin:0;color:var(--chalk)}
-.brand h1 .m{color:var(--glow-p)} .brand h1 .w{color:#5A9BE0}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:1.8rem;letter-spacing:-.01em;line-height:1;margin:0;color:var(--chalk)}
+.brand h1 .m{color:var(--phys)} .brand h1 .w{color:var(--dig);font-style:italic}
 .brand p{font:500 .64rem/1.2 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--bar-dim);margin:0}
 .chapters{display:flex;gap:4px;overflow-x:auto;min-width:0;scrollbar-width:none;padding:2px}
 .chapters::-webkit-scrollbar{display:none}
-.chapters button{flex:0 0 auto;font:500 .78rem var(--f-mono);color:var(--bar-dim);background:rgba(13,11,16,.55);border:1px solid var(--bar-line);border-radius:4px;min-width:36px;height:32px;cursor:pointer;position:relative;font-variant-numeric:tabular-nums}
+.chapters button{flex:0 0 auto;font:500 .78rem var(--f-mono);color:var(--bar-dim);background:#fff;border:1px solid var(--bar-line);border-radius:8px;min-width:36px;height:32px;cursor:pointer;position:relative;font-variant-numeric:tabular-nums}
 .chapters button:hover{color:var(--chalk);border-color:var(--bar-dim)}
-.chapters button[aria-current="true"]{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.chapters button[aria-current="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
 .chapters button.done::after{content:"";position:absolute;right:3px;top:3px;width:6px;height:6px;border-radius:50%;background:var(--glow-p)}
-.views{display:inline-flex;border:1px solid var(--bar-line);border-radius:4px;overflow:hidden;background:rgba(13,11,16,.55)}
+.views{display:inline-flex;border:1px solid var(--bar-line);border-radius:8px;overflow:hidden;background:#fff}
 .views button{font:500 .72rem var(--f-mono);letter-spacing:.04em;padding:8px 10px;background:transparent;border:0;border-right:1px solid var(--bar-line);color:var(--bar-dim);cursor:pointer}
 .views button:last-child{border-right:0}
-.views button[aria-pressed="true"]{background:var(--paper);color:var(--ink)}
+.views button[aria-pressed="true"]{background:var(--ink);color:#fff}
 .tools{display:flex;gap:10px;align-items:center;margin-left:auto}
 .tally{font:500 .72rem var(--f-mono);letter-spacing:.06em;color:var(--bar-dim);white-space:nowrap}
 .tally b{color:var(--glow-p);font-weight:600}
-.btn{font:500 .72rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--chalk);background:rgba(13,11,16,.55);border:1px solid var(--bar-line);border-radius:4px;padding:8px 11px;cursor:pointer;white-space:nowrap}
+.btn{font:500 .72rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--chalk);background:#fff;border:1px solid var(--bar-line);border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap}
 .btn:hover{border-color:var(--bar-dim)}
 
 .chapters{align-items:center}
 .chapters .tocbtn{min-width:0;padding:0 11px;letter-spacing:.06em;text-transform:uppercase;font-size:.7rem;color:var(--chalk)}
-.chapters .tocbtn[aria-expanded="true"]{background:var(--paper);color:var(--ink)}
+.chapters .tocbtn[aria-expanded="true"]{background:var(--ink);color:#fff}
 .tname{font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--glow-p);padding:0 6px 0 8px;white-space:nowrap}
 .toc{position:absolute;top:100%;left:max(16px, env(safe-area-inset-left, 0px));right:max(16px, env(safe-area-inset-right, 0px));max-width:980px;z-index:12;
-  background:var(--paper);color:var(--ink);border-radius:5px;padding:18px 20px 20px;box-shadow:0 24px 50px -12px rgba(0,0,0,.85);max-height:min(72vh, 640px);overflow-y:auto}
+  background:var(--paper);color:var(--ink);border-radius:14px;padding:18px 20px 20px;box-shadow:0 24px 60px -20px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.06);max-height:min(72vh, 640px);overflow-y:auto}
 .toc-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));gap:16px 22px;margin-top:12px}
 .toc h4{font:600 .7rem var(--f-mono);letter-spacing:.12em;text-transform:uppercase;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--rule);color:var(--phys)}
-.toc button{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;background:none;border:0;padding:6px 4px;border-radius:3px;cursor:pointer;color:var(--ink);font:inherit}
+.toc button{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;background:none;border:0;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink);font:inherit}
 .toc button:hover{background:var(--paper-2)}
 .toc button[aria-current="true"]{background:var(--ink);color:var(--paper)}
 .toc .n{font:500 .74rem var(--f-mono);color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
-.toc .t{font-family:var(--f-display);font-weight:600;font-size:.98rem;line-height:1.2;flex:1}
+.toc .t{font-family:var(--f-body);font-weight:500;font-size:.92rem;line-height:1.2;flex:1}
 .toc .st{width:8px;height:8px;border-radius:50%;background:var(--glow-p);flex:0 0 auto;align-self:center}
 /* labels drawn over the pop-up diagram, inked onto the paper */
 .labels{position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden}
-.lab{position:absolute;left:0;top:0;font:600 19px/1 var(--f-hand);color:var(--ink);white-space:nowrap;will-change:transform;
-  text-shadow:0 0 3px rgba(242,235,220,.95),0 0 7px rgba(242,235,220,.8)}
+.lab{position:absolute;left:0;top:0;font:600 14px/1 var(--f-hand);letter-spacing:-.005em;color:var(--ink);white-space:nowrap;will-change:transform;
+  text-shadow:0 0 3px rgba(255,255,255,.95),0 0 7px rgba(255,255,255,.85)}
 .lab.p{color:var(--phys)} .lab.d{color:var(--dig)}
 .lab.m{font:500 10.5px/1 var(--f-mono);letter-spacing:.02em;color:var(--ink-soft)}
 .hint{position:absolute;left:max(16px, env(safe-area-inset-left, 0px));bottom:max(14px, env(safe-area-inset-bottom, 0px));z-index:3;font:500 11px var(--f-mono);color:var(--bar-dim);pointer-events:none;max-width:60%}
-.modes button[aria-pressed="true"]{background:var(--glow-p);color:#1A1208}
+.modes button[aria-pressed="true"]{background:var(--dig);color:#fff}
 /* free 3D: no book, a dark drafting plate with glowing flows (first-version look) */
 .app.free{background:radial-gradient(ellipse 70% 70% at 40% 45%, #1C232B 0%, #151A20 55%, #0F1216 100%)}
 #stage.free{--phys:#F0913A;--dig:#4C9BEA;--chalk-dim:#8E969F}
-#stage.free .lab{color:var(--chalk);text-shadow:0 1px 2px rgba(0,0,0,.75)}
+#stage.free .lab{color:var(--plate-text);text-shadow:0 1px 2px rgba(0,0,0,.75)}
 #stage.free .lab.p{color:#F0913A} #stage.free .lab.d{color:#4C9BEA} #stage.free .lab.m{color:#8E969F}
-.legend{position:absolute;left:max(16px, env(safe-area-inset-left, 0px));top:70px;z-index:3;display:flex;flex-direction:column;gap:5px;font:500 11px var(--f-mono);color:#8E969F;pointer-events:none}
+.legend{position:absolute;left:max(16px, env(safe-area-inset-left, 0px));top:84px;z-index:3;display:flex;flex-direction:column;gap:5px;font:500 11px var(--f-mono);color:#8E969F;pointer-events:none}
 .legend span{display:flex;align-items:center;gap:7px}
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
 .dot.p{background:#F0913A;box-shadow:0 0 8px #F0913A} .dot.d{background:#4C9BEA;box-shadow:0 0 8px #4C9BEA}
-.readout{position:absolute;left:max(16px, env(safe-area-inset-left, 0px));bottom:40px;z-index:3;background:rgba(21,26,32,.86);border:1px solid #2A313A;border-radius:4px;padding:8px 12px;max-width:min(460px, calc(100% - 32px));pointer-events:none}
+.readout{position:absolute;left:max(16px, env(safe-area-inset-left, 0px));bottom:40px;z-index:3;background:rgba(21,26,32,.86);border:1px solid #2A313A;border-radius:10px;padding:8px 12px;max-width:min(460px, calc(100% - 32px));pointer-events:none}
 .readout table{border-collapse:collapse;font:12px/1.55 var(--f-mono)}
 .readout th{text-align:left;font-weight:400;color:#8E969F;padding-right:16px;white-space:nowrap}
-.readout td{text-align:right;color:var(--chalk);font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
+.readout td{text-align:right;color:var(--plate-text);font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
 .readout td.p{color:#F0913A} .readout td.d{color:#4C9BEA}
 .card .lede{display:flex;flex-direction:column;gap:.7em;margin-top:8px}
 .card .lede p{margin:0;font-size:.93rem;line-height:1.6}
@@ -106,20 +108,19 @@ body{background:var(--desk);color:var(--bar-text);font-family:var(--f-body);over
 .nogl{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;font:500 .9rem/1.6 var(--f-mono);color:var(--bar-dim);z-index:4}
 
 /* the work card */
-.card{position:absolute;z-index:5;top:64px;bottom:16px;right:max(16px, env(safe-area-inset-right, 0px));width:min(370px, 34vw);overflow-y:auto;overscroll-behavior:contain;
-  background:var(--paper);color:var(--ink);border-radius:5px;padding:22px 22px 18px;box-shadow:0 24px 50px -18px rgba(0,0,0,.85),0 0 0 1px rgba(0,0,0,.4);
-  background-image:linear-gradient(var(--paper),var(--paper)),repeating-linear-gradient(transparent 0 27px, rgba(36,102,176,.06) 27px 28px)}
-.devlinks{margin:.35rem 0 0;font:500 .72rem/1.5 var(--f-mono);color:var(--ink-soft)}.devlinks a{color:var(--dig, #0072B2);margin-right:.6rem;text-decoration:none;border-bottom:1px solid currentColor}
+.card{position:absolute;z-index:5;top:76px;bottom:16px;right:max(16px, env(safe-area-inset-right, 0px));width:min(370px, 34vw);overflow-y:auto;overscroll-behavior:contain;
+  background:var(--paper);color:var(--ink);border-radius:16px;padding:22px 22px 18px;box-shadow:0 24px 60px -24px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.07)}
+.devlinks{margin:.35rem 0 0;font:500 .72rem/1.5 var(--f-mono);color:var(--ink-soft)}.devlinks a{display:inline-block;color:var(--dig);margin:.2rem .4rem 0 0;text-decoration:none;border:1px solid rgba(31,99,181,.3);background:rgba(31,99,181,.06);padding:3px 9px;border-radius:999px}
 a.btn.devlab{text-decoration:none;display:inline-flex;align-items:center}
 .eyebrow{font:500 .66rem/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0}
-.card h2{font-family:var(--f-display);font-weight:600;font-size:1.45rem;line-height:1.1;margin:.3em 0 .2em;text-wrap:balance}
+.card h2{font-family:var(--f-display);font-weight:400;font-size:1.9rem;letter-spacing:-.01em;line-height:1.1;margin:.3em 0 .2em;text-wrap:balance}
 .step{border-top:1px solid var(--rule);padding-top:14px;margin-top:16px;display:flex;flex-direction:column;gap:10px}
 .step h3{font:600 .7rem var(--f-mono);letter-spacing:.14em;text-transform:uppercase;margin:0;display:flex;gap:9px;align-items:center}
-.step h3 b{display:inline-grid;place-items:center;width:21px;height:21px;border:1.5px solid var(--ink);border-radius:50%;font-size:.68rem;letter-spacing:0}
+.step h3 b{display:inline-grid;place-items:center;width:22px;height:22px;border:0;background:var(--ink);color:#fff;border-radius:50%;font-size:.68rem;letter-spacing:0}
 .step p{margin:0;font-size:.92rem;line-height:1.55}
 .q{font-weight:500}
 .opts{display:grid;gap:7px}
-.opt{text-align:left;font:inherit;font-size:.9rem;line-height:1.35;padding:9px 11px;border:1px solid var(--rule);background:var(--paper-2);border-radius:4px;cursor:pointer;color:var(--ink)}
+.opt{text-align:left;font:inherit;font-size:.9rem;line-height:1.35;padding:10px 12px;border:1px solid var(--rule);background:var(--paper-2);border-radius:10px;cursor:pointer;color:var(--ink)}
 .opt:hover:not(:disabled){border-color:var(--ink)}
 .opt[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .opt:disabled:not([aria-pressed="true"]){opacity:.5;cursor:default}
@@ -130,14 +131,14 @@ a.btn.devlab{text-decoration:none;display:inline-flex;align-items:center}
 .ctl output{font:500 .76rem var(--f-mono);color:var(--dig);font-variant-numeric:tabular-nums}
 .ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ink);margin:0}
 .ctl .seg{grid-column:1/-1}
-.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--ink);border-radius:4px;overflow:hidden;justify-self:start;max-width:100%}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--rule);border-radius:8px;overflow:hidden;justify-self:start;max-width:100%}
 .seg button{font:500 .74rem var(--f-mono);padding:7px 9px;background:transparent;border:0;border-right:1px solid var(--rule);color:var(--ink);cursor:pointer}
 .seg button:last-child{border-right:0}
 .seg button[aria-checked="true"]{background:var(--ink);color:var(--paper)}
 .tog{display:flex;gap:9px;align-items:center;font:500 .76rem var(--f-mono);cursor:pointer}
 .tog input{accent-color:var(--ink);width:16px;height:16px;margin:0}
-.liftbtn{align-self:start;font:600 .74rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);border-radius:4px;padding:10px 14px;cursor:pointer;box-shadow:0 3px 0 var(--ink)}
-.liftbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.liftbtn{align-self:start;font:600 .74rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;background:var(--ink);color:#fff;border:0;border-radius:999px;padding:11px 18px;cursor:pointer;box-shadow:0 6px 16px -8px rgba(16,24,40,.6)}
+.liftbtn:active{transform:translateY(1px)}
 .liftbtn:disabled{opacity:.5;box-shadow:none;cursor:default}
 .verdict{font-weight:600;font-size:.92rem}
 .verdict.ok{color:var(--dig)} .verdict.no{color:var(--phys)}
@@ -145,18 +146,18 @@ details.txt{border-top:1px solid var(--rule);margin-top:16px;padding-top:12px}
 details.txt summary{font:600 .7rem var(--f-mono);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
 details.txt .body{display:flex;flex-direction:column;gap:10px;margin-top:10px}
 details.txt p{margin:0;font-size:.9rem;line-height:1.6}
-.eq{font:400 .74rem/1.55 var(--f-mono);background:var(--paper-2);border:1px solid var(--rule);padding:9px 11px;border-radius:3px;overflow-x:auto;white-space:pre;margin:0;max-width:100%}
+.eq{font:400 .74rem/1.55 var(--f-mono);background:var(--paper-2);border:1px solid var(--rule);padding:10px 12px;border-radius:10px;overflow-x:auto;white-space:pre;margin:0;max-width:100%}
 .pager{display:flex;justify-content:space-between;gap:12px;margin-top:20px;border-top:1px solid var(--rule);padding-top:12px}
 .pager button{font:500 .74rem var(--f-mono);background:none;border:0;color:var(--ink);cursor:pointer;padding:4px 0;text-align:left;max-width:48%}
 .pager button:last-child{text-align:right}
 .pager button:disabled{opacity:.3;cursor:default}
-.pager span{display:block;font-family:var(--f-display);font-size:.95rem;font-weight:600}
+.pager span{display:block;font-family:var(--f-body);font-size:.88rem;font-weight:600}
 
 /* teacher notes */
-.overlay{position:fixed;inset:0;z-index:20;background:rgba(8,7,9,.72);display:flex;justify-content:flex-end;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-.sheet{background:var(--paper);color:var(--ink);width:min(640px,100%);height:100%;overflow-y:auto;padding:26px max(22px, env(safe-area-inset-right,0px)) 30px 26px;box-shadow:-20px 0 40px rgba(0,0,0,.5)}
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(15,20,28,.45);display:flex;justify-content:flex-end;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet{background:var(--paper);color:var(--ink);width:min(640px,100%);height:100%;overflow-y:auto;padding:26px max(22px, env(safe-area-inset-right,0px)) 30px 26px;box-shadow:-20px 0 50px rgba(16,24,40,.25)}
 .sheet-h{display:flex;justify-content:space-between;align-items:start;gap:12px}
-.sheet h2{font-family:var(--f-display);font-weight:600;font-size:1.7rem;line-height:1.1;margin:.3em 0 .6em;text-wrap:balance}
+.sheet h2{font-family:var(--f-display);font-weight:400;font-size:2.1rem;line-height:1.1;margin:.3em 0 .6em;text-wrap:balance}
 .sheet h3{font:600 .72rem var(--f-mono);letter-spacing:.14em;text-transform:uppercase;margin:26px 0 10px;border-top:1px solid var(--rule);padding-top:16px}
 .sheet dl{margin:0;display:grid;gap:14px}
 .sheet dt{font:600 .7rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
@@ -164,8 +165,8 @@ details.txt p{margin:0;font-size:.9rem;line-height:1.6}
 .sheet dd ul{margin:0;padding-left:1.1em}
 .refs{list-style:none;margin:0;padding:0;display:grid;gap:9px}
 .refs li{padding-left:2.2em;text-indent:-2.2em;line-height:1.5;font-size:.88rem;overflow-wrap:anywhere}
-.close{font:600 .72rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;background:none;border:1.5px solid var(--ink);color:var(--ink);border-radius:4px;padding:8px 12px;cursor:pointer;flex:0 0 auto}
-.reset{margin-top:22px;font:500 .72rem var(--f-mono);background:none;border:1px solid var(--rule);color:var(--ink-soft);border-radius:4px;padding:8px 12px;cursor:pointer}
+.close{font:600 .72rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;background:none;border:1px solid var(--rule);color:var(--ink);border-radius:999px;padding:8px 12px;cursor:pointer;flex:0 0 auto}
+.reset{margin-top:22px;font:500 .72rem var(--f-mono);background:none;border:1px solid var(--rule);color:var(--ink-soft);border-radius:999px;padding:8px 12px;cursor:pointer}
 
 @media (max-width: 979px){
   body{overflow:auto}
@@ -227,7 +228,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 // Colour convention used on every plate: orange = data born in the physical world,
 // blue = data born in the digital model. Chalk = neutral drawing ink.
-const COL = { phys: 0xE07A1F, dig: 0x2F78C8, chalk: 0x262A30, dim: 0x9A917F, fill: 0xF2EBDC, fill2: 0xE3D9C4, water: 0x6FAFCB };
+const COL = { phys: 0xE07A1F, dig: 0x2F78C8, chalk: 0x1B2027, dim: 0x8E98A4, fill: 0xF4F6F9, fill2: 0xE3E8EE, water: 0x6FAFCB };
 // Deterministic random numbers so the plates look the same on every visit
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const pad2 = n => String(n).padStart(2, '0');
@@ -3415,7 +3416,7 @@ RICH.kitweb = function (c) {
 ================================================================== */
 // Two ways to view each lesson: printed in the 3D book, or "free 3D" on a dark drafting plate (no book)
 const PAL = {
-  book: { phys: 0xE07A1F, dig: 0x2F78C8, chalk: 0x262A30, dim: 0x9A917F, fill: 0xF2EBDC, fill2: 0xE3D9C4, water: 0x6FAFCB },
+  book: { phys: 0xE07A1F, dig: 0x2F78C8, chalk: 0x1B2027, dim: 0x8E98A4, fill: 0xF4F6F9, fill2: 0xE3E8EE, water: 0x6FAFCB },
   free: { phys: 0xF0913A, dig: 0x4C9BEA, chalk: 0xE6E2D6, dim: 0x66717D, fill: 0x1C232B, fill2: 0x252E38, water: 0xB9DCEB }
 };
 const MODE = { free: false, blend: window.THREE ? THREE.NormalBlending : 1, dot: .75, fade: [0, 0, 0] };
@@ -3423,7 +3424,7 @@ let bookGroup = null, grid = null;
 try { MODE.free = localStorage.getItem('mw-mode') === 'free'; } catch (e) { /* default: book */ }
 const W = 9, H = 12, PL = 0.42;                          // page width, page height, height of the page block
 const pageY = d => PL * (1 - Math.exp(-Math.max(0, d) * 4)); // pages dip into the gutter at the spine
-const PAPER = '#F2EBDC', INK = '#262A30', INK_SOFT = '#6B6458', ORANGE = '#B85A0E', BLUE = '#2466B0';
+const PAPER = '#FBFCFD', INK = '#1B2027', INK_SOFT = '#5E6773', ORANGE = '#C2610C', BLUE = '#1F63B5';
 const CW = 1280, SC = CW / 1536, CH = Math.round(2048 * SC); // page canvases are designed at 1536 × 2048 and drawn scaled
 const POP = { cx: 4.6, cz: -.85, w: 7.4, d: 8.0 };           // where the pop-up stands on the right page
 const FLAP = { x0: 300, x1: 1400, y0: 1390, y1: 1945 };      // flap area on the left page (canvas px)
@@ -3431,7 +3432,7 @@ const flapW = (FLAP.x1 - FLAP.x0) / 1536 * W, flapD = (FLAP.y1 - FLAP.y0) / 2048
 const flapCX = -W + (FLAP.x0 + FLAP.x1) / 2 / 1536 * W, flapZ0 = -H / 2 + FLAP.y0 / 2048 * H;
 const FLAP_UP = -1.72;
 const RO = { cx: 4.0, cz: 4.4, w: 6.4, d: 1.6 };              // printed instrument card on the right page
-const F = { disp: '"Zilla Slab", Rockwell, Georgia, serif', body: 'Literata, Georgia, serif', mono: '"IBM Plex Mono", Menlo, Consolas, monospace', hand: 'Caveat, "Segoe Print", cursive' };
+const F = { disp: '"Instrument Serif", Georgia, serif', body: 'Inter, system-ui, sans-serif', mono: '"JetBrains Mono", Menlo, Consolas, monospace', hand: 'Inter, system-ui, sans-serif' };
 
 const stage = document.getElementById('stage'), labelLayer = document.getElementById('labels'), cardEl = document.getElementById('card');
 const chapEl = document.getElementById('chapters'), tallyEl = document.getElementById('tally');
@@ -3485,7 +3486,7 @@ function flowText(g, blocks, x, y, w, maxH) {
         const lines = txt.split('\n'); const mw = Math.max(...lines.map(l => g.measureText(l).width));
         if (mw > w - 36) { fs = Math.floor(fs * (w - 36) / mw); g.font = st.font(fs); }
         const lh = fs * st.lh, bh = lines.length * lh + fs * .8;
-        if (draw) { g.fillStyle = 'rgba(38,42,48,.06)'; g.fillRect(x, yy, w, bh); g.fillStyle = st.color; lines.forEach((l, i) => g.fillText(l, x + 18, yy + fs * 1.35 + i * lh)); }
+        if (draw) { g.fillStyle = 'rgba(27,32,39,.06)'; g.fillRect(x, yy, w, bh); g.fillStyle = st.color; lines.forEach((l, i) => g.fillText(l, x + 18, yy + fs * 1.35 + i * lh)); }
         yy += bh + st.gap * s; continue;
       }
       const lines = wrap(g, txt, w - (b.indent || 0)), lh = fs * st.lh;
@@ -3506,14 +3507,14 @@ function paper(g, gutterSide) {
   }
   g.fillStyle = g.createPattern(noiseCv, 'repeat'); g.fillRect(0, 0, 1536, 2048);
   const gx = gutterSide === 'right' ? 1536 : 0, gr = g.createLinearGradient(gx, 0, gutterSide === 'right' ? 1536 - 170 : 170, 0);
-  gr.addColorStop(0, 'rgba(70,52,30,.22)'); gr.addColorStop(1, 'rgba(70,52,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, 1536, 2048);
+  gr.addColorStop(0, 'rgba(40,50,64,.22)'); gr.addColorStop(1, 'rgba(40,50,64,0)'); g.fillStyle = gr; g.fillRect(0, 0, 1536, 2048);
 }
 function dogEar(g, side, label) {
   // a turned-down corner: the hint to click there to turn the page
   const x = side === 'right' ? 1536 : 0, s = side === 'right' ? -1 : 1, y = 2048, k = 150;
-  g.fillStyle = 'rgba(70,52,30,.16)'; g.beginPath(); g.moveTo(x, y - k); g.lineTo(x + s * k, y); g.lineTo(x, y); g.closePath(); g.fill();
-  g.fillStyle = '#E4D8BF'; g.beginPath(); g.moveTo(x, y - k); g.lineTo(x + s * k, y); g.lineTo(x + s * k, y - k); g.closePath(); g.fill();
-  g.strokeStyle = 'rgba(38,42,48,.35)'; g.lineWidth = 2; g.stroke();
+  g.fillStyle = 'rgba(40,50,64,.16)'; g.beginPath(); g.moveTo(x, y - k); g.lineTo(x + s * k, y); g.lineTo(x, y); g.closePath(); g.fill();
+  g.fillStyle = '#E5E9EE'; g.beginPath(); g.moveTo(x, y - k); g.lineTo(x + s * k, y); g.lineTo(x + s * k, y - k); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(27,32,39,.35)'; g.lineWidth = 2; g.stroke();
   g.fillStyle = INK; g.font = `600 44px ${F.hand}`; g.textAlign = 'center'; g.fillText(label, x + s * 100, y - 92); g.textAlign = 'left';
 }
 function drawStamp(g, x, y, i, L) {
@@ -3531,7 +3532,7 @@ function drawLeft(i, g) {
   g.fillStyle = INK; g.font = `600 80px ${F.disp}`;
   const tl = wrap(g, L.title, w - 280).slice(0, 3); tl.forEach((l, k) => g.fillText(l, x0, 248 + k * 86));
   let y = 248 + (tl.length - 1) * 86 + 46;
-  g.fillStyle = 'rgba(38,42,48,.3)'; g.fillRect(x0, y, w, 2); y += 30;
+  g.fillStyle = 'rgba(27,32,39,.3)'; g.fillRect(x0, y, w, 2); y += 30;
   const top = L.body.map(t => ({ type: 'p', text: strip(t) }));
   top.push({ type: 'h', text: '1 · Predict, then choose on your card' }, { type: 'q', text: strip(L.predict.q) });
   L.predict.options.forEach((o, k) => top.push({ type: 'opt', text: (st.predicted === k ? '▸ ' : '   ') + 'abc'[k] + ')  ' + o, indent: 10, color: st.predicted === k ? INK : undefined }));
@@ -3557,7 +3558,7 @@ function drawRight(i, g) {
   g.font = `italic 400 30px ${F.body}`; g.fillStyle = INK; g.fillText(L.title, x0 + 170, 118);
   // crop marks around the pop-up area
   const ax0 = (POP.cx - POP.w / 2) / W * 1536 - 20, ax1 = (POP.cx + POP.w / 2) / W * 1536 + 20, ay0 = (POP.cz - POP.d / 2 + H / 2) / H * 2048 - 10, ay1 = (POP.cz + POP.d / 2 + H / 2) / H * 2048 + 10;
-  g.strokeStyle = 'rgba(38,42,48,.35)'; g.lineWidth = 2;
+  g.strokeStyle = 'rgba(27,32,39,.35)'; g.lineWidth = 2;
   [[ax0, ay0, 1, 1], [ax1, ay0, -1, 1], [ax0, ay1, 1, -1], [ax1, ay1, -1, -1]].forEach(([x, y, sx, sy]) => { g.beginPath(); g.moveTo(x + sx * 46, y); g.lineTo(x, y); g.lineTo(x, y + sy * 46); g.stroke(); });
   g.font = `500 19px ${F.mono}`; g.fillStyle = INK_SOFT; g.fillText('drag to look around the plate', ax0, ay1 + 36);
   // colour key
@@ -3576,8 +3577,8 @@ function drawRight(i, g) {
 }
 function drawReadout(rows) {
   const g = readG; g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = '#EAE1CC'; g.fillRect(0, 0, 1024, 256);
-  g.strokeStyle = 'rgba(38,42,48,.45)'; g.lineWidth = 3; g.strokeRect(6, 6, 1012, 244);
+  g.fillStyle = '#EEF1F4'; g.fillRect(0, 0, 1024, 256);
+  g.strokeStyle = 'rgba(27,32,39,.45)'; g.lineWidth = 3; g.strokeRect(6, 6, 1012, 244);
   g.fillStyle = INK_SOFT; g.font = `600 17px ${F.mono}`; g.fillText('READINGS', 26, 36);
   const cols = rows.length > 3 ? 2 : 1, per = Math.ceil(rows.length / cols), cw = (1024 - 52) / cols;
   rows.forEach((r, k) => {
@@ -3626,23 +3627,23 @@ function pageMesh(sd) {
 function drawFlap(fc) {
   const f = fc.getContext('2d');
 
-  f.fillStyle = '#E9DFC9'; f.fillRect(0, 0, fc.width, fc.height);
-  f.strokeStyle = 'rgba(38,42,48,.09)'; f.lineWidth = 6; for (let x = -fc.height; x < fc.width; x += 22) { f.beginPath(); f.moveTo(x, fc.height); f.lineTo(x + fc.height, 0); f.stroke(); }
-  f.strokeStyle = 'rgba(38,42,48,.5)'; f.lineWidth = 3; f.strokeRect(12, 12, fc.width - 24, fc.height - 24);
+  f.fillStyle = '#EDF0F4'; f.fillRect(0, 0, fc.width, fc.height);
+  f.strokeStyle = 'rgba(27,32,39,.09)'; f.lineWidth = 6; for (let x = -fc.height; x < fc.width; x += 22) { f.beginPath(); f.moveTo(x, fc.height); f.lineTo(x + fc.height, 0); f.stroke(); }
+  f.strokeStyle = 'rgba(27,32,39,.5)'; f.lineWidth = 3; f.strokeRect(12, 12, fc.width - 24, fc.height - 24);
   f.fillStyle = INK; f.textAlign = 'center'; f.font = `700 70px ${F.disp}`; f.fillText('Lift the flap', fc.width / 2, fc.height / 2 + 8);
   f.font = `500 24px ${F.mono}`; f.fillStyle = INK_SOFT; f.fillText('THE ANSWER IS UNDERNEATH · PREDICT FIRST', fc.width / 2, fc.height / 2 + 62);
   f.font = `600 40px ${F.hand}`; f.fillStyle = ORANGE; f.fillText('click to lift', fc.width / 2, fc.height / 2 - 72);
 }
 function buildBook() {
   bookGroup = new THREE.Group(); scene.add(bookGroup);
-  const cover = new THREE.Mesh(new THREE.BoxGeometry(2 * W + .7, .16, H + .6), new THREE.MeshLambertMaterial({ color: 0x1E3A40 }));
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(2 * W + .7, .16, H + .6), new THREE.MeshLambertMaterial({ color: 0x2B3440 }));
   cover.position.y = -.1; cover.castShadow = cover.receiveShadow = true; bookGroup.add(cover);
-  const spine = new THREE.Mesh(new THREE.BoxGeometry(1.1, .2, H + .6), new THREE.MeshLambertMaterial({ color: 0x173035 })); spine.position.y = -.2; bookGroup.add(spine);
+  const spine = new THREE.Mesh(new THREE.BoxGeometry(1.1, .2, H + .6), new THREE.MeshLambertMaterial({ color: 0x222A33 })); spine.position.y = -.2; bookGroup.add(spine);
   [-1, 1].forEach(sd => {
-    const bw = W - .6, b = new THREE.Mesh(new THREE.BoxGeometry(bw, .36, H - .04), new THREE.MeshLambertMaterial({ color: 0xE3D8C0 }));
+    const bw = W - .6, b = new THREE.Mesh(new THREE.BoxGeometry(bw, .36, H - .04), new THREE.MeshLambertMaterial({ color: 0xE6EAEF }));
     b.position.set(sd * (.6 + bw / 2), .18, 0); b.castShadow = b.receiveShadow = true; bookGroup.add(b);
     for (let k = 1; k < 6; k++) { // page edges seen at the fore-edge
-      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(sd * (W + .002), k * .06, -H / 2 + .02), V(sd * (W + .002), k * .06, H / 2 - .02)]), new THREE.LineBasicMaterial({ color: 0xBFB298 }));
+      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(sd * (W + .002), k * .06, -H / 2 + .02), V(sd * (W + .002), k * .06, H / 2 - .02)]), new THREE.LineBasicMaterial({ color: 0xC5CDD6 }));
       bookGroup.add(l);
     }
   });
@@ -3666,12 +3667,12 @@ function buildBook() {
   const ftex = new THREE.CanvasTexture(fc); ftex.anisotropy = ANISO; flapFront = { canvas: fc, tex: ftex };
   const fm = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ map: ftex, side: THREE.FrontSide }));
   const bc = document.createElement('canvas'); bc.width = 1024; bc.height = fc.height; const bg = bc.getContext('2d');
-  bg.fillStyle = '#F0E8D7'; bg.fillRect(0, 0, bc.width, bc.height); bg.translate(0, bc.height); bg.scale(1, -1);
-  bg.strokeStyle = 'rgba(38,42,48,.35)'; bg.lineWidth = 3; bg.strokeRect(14, 14, bc.width - 28, bc.height - 28);
+  bg.fillStyle = '#F6F8FA'; bg.fillRect(0, 0, bc.width, bc.height); bg.translate(0, bc.height); bg.scale(1, -1);
+  bg.strokeStyle = 'rgba(27,32,39,.35)'; bg.lineWidth = 3; bg.strokeRect(14, 14, bc.width - 28, bc.height - 28);
   bg.fillStyle = INK; bg.textAlign = 'center'; bg.font = `600 64px ${F.hand}`; bg.fillText('the answer is below', bc.width / 2, bc.height / 2 + 4);
   bg.font = `700 80px ${F.disp}`; bg.fillText('↓', bc.width / 2, bc.height / 2 + 100);
   const btex = new THREE.CanvasTexture(bc); btex.anisotropy = ANISO; flapFront.back = { canvas: bc, tex: btex };
-  const bm = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ map: btex, side: THREE.BackSide, emissive: 0x2A2418 }));
+  const bm = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ map: btex, side: THREE.BackSide, emissive: 0x1E232A }));
   fm.castShadow = bm.castShadow = true; flapPivot.add(fm, bm); flapFront.mesh = fm;
   // the stamp that thumps down when earned
   const sc = document.createElement('canvas'); sc.width = 640; sc.height = 360; stampTex = new THREE.CanvasTexture(sc); stampTex.userData = { cv: sc };
@@ -3705,8 +3706,8 @@ function initGL() {
   ANISO = renderer.capabilities.getMaxAnisotropy();
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(34, 1, .1, 300);
-  scene.add(new THREE.HemisphereLight(0xFFF4E2, 0x2A2420, .62));
-  const lamp = new THREE.DirectionalLight(0xFFE7C6, .55); lamp.position.set(-7, 16, 7); lamp.castShadow = true;
+  scene.add(new THREE.HemisphereLight(0xFFFFFF, 0x6E7783, .7));
+  const lamp = new THREE.DirectionalLight(0xFFFFFF, .55); lamp.position.set(-7, 16, 7); lamp.castShadow = true;
   lamp.shadow.mapSize.set(2048, 2048); Object.assign(lamp.shadow.camera, { left: -13, right: 13, top: 10, bottom: -10, near: 1, far: 45 });
   lamp.shadow.bias = -.0006; lamp.shadow.normalBias = .02; scene.add(lamp);
   GLOW = makeGlow();

@@ -25,7 +25,7 @@ const lab = new Lab({
   cut: { a: [0, 0, 1], b: [0, 1, 0], center: [0, 0.3, 0], reach: 0.5 },
   pills: ['Laser sweep', 'Photodiodes', 'WebXR'],
 })
-chrome('Tracking')
+chrome('tracking')
 
 const bsShell = MAT.plastic({ color: [0.04, 0.04, 0.045], roughness: 0.35, clearcoat: 0.5 })
 const bsFront = MAT.plastic({ color: [0.02, 0.02, 0.025], roughness: 0.05, clearcoat: 1 })

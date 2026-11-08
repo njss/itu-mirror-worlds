@@ -25,7 +25,7 @@ const lab = new Lab({
   cut: { a: [1, 0, 0], b: [0, 1, 0], center: [0, EY, ZV], reach: 0.35 },
   pills: ['Foveated rendering', 'Eye tracking', 'WebXR'],
 })
-chrome('Varjo')
+chrome('varjo')
 headStand(lab, MAT, GEO, EY)
 
 const shellM = MAT.paint({ color: [0.12, 0.125, 0.13], roughness: 0.42, clearcoat: 0.3 })

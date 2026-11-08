@@ -23,7 +23,7 @@ const lab = new Lab({
   cut: { a: [1, 0, 0], b: [0, 1, 0], center: [0, EY, ZV], reach: 0.35 },
   pills: ['Waveguides', 'Dimming', 'WebXR'],
 })
-chrome('Magic Leap 2')
+chrome('ml2')
 headStand(lab, MAT, GEO, EY)
 
 const frameM = MAT.paint({ color: [0.07, 0.07, 0.075], roughness: 0.35, clearcoat: 0.5 })

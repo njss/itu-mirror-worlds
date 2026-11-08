@@ -9,7 +9,8 @@
 const { THREE, Lab, MAT, GEO, clamp, lerp, approach, fmt } = window.LabKit
 const { addXR, refsHTML, polyline, chrome } = window.DevLab
 
-const PPD = 10                       // points per degree (E57 export density)
+const PTS = 1.5e6                    // points per 360 deg scan (Matterport, n.d.)
+const DTH = Math.sqrt(360 * 295 / PTS) // mean angular spacing in degrees, about 0.27
 const PANO_W = Math.round(Math.sqrt(134.2e6 * 2))   // equirectangular width for 134.2 MP at 2:1
 const H = 1.45                       // scanner head height on the tripod
 
@@ -17,11 +18,11 @@ const lab = new Lab({
   prompt: 'a tripod LiDAR camera that scans a building into a digital twin: what limits the detail?',
   no: 7, title: 'Matterport Pro3', sub: 'LiDAR + 360',
   size: 2.2,
-  view: { az: 30, el: 14, dist: 1.45, target: [0.1, 0.95, -0.2], fov: 30 },
+  view: { az: 30, el: 10, dist: 1.75, target: [0.1, 1.1, -0.2], fov: 30 },
   cut: { a: [0, 0, 1], b: [0, 1, 0], center: [0, H, 0], reach: 0.4 },
   pills: ['LiDAR', 'Point cloud', 'WebXR'],
 })
-chrome('Pro3')
+chrome('pro3')
 
 const bodyM = MAT.plastic({ color: [0.06, 0.06, 0.065], roughness: 0.35 })
 const accentM = MAT.paint({ color: [0.9, 0.9, 0.88], roughness: 0.35 })
@@ -34,30 +35,36 @@ const wallM = MAT.paint({ color: [0.86, 0.84, 0.8], roughness: 0.8, clearcoat: 0
 // ---------------------------------------------------------------- tripod
 for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + 0.4; lab.add(new THREE.Mesh(GEO.pipe([[0, H - 0.3, 0], [Math.cos(a) * 0.42, 0.01, Math.sin(a) * 0.42]], 0.012), tripodM), { name: `Tripod leg ${i + 1}`, explode: [Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2] }) }
 for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + 0.4; lab.mesh(GEO.disc(0.018, 0.012), MAT.rubber(), { name: `Foot ${i + 1}`, pos: [Math.cos(a) * 0.42, 0.006, Math.sin(a) * 0.42], explode: [Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2] }) }
-lab.mesh(GEO.tube(0.016, 0, 0.18), tripodM, { name: 'Centre column', pos: [0, H - 0.27, 0] })
+lab.mesh(GEO.tube(0.016, 0, 0.25), tripodM, { name: 'Centre column', pos: [0, H - 0.235, 0] })
 lab.mesh(GEO.disc(0.04, 0.03, 0.004), blackM, { name: 'Leg hub', pos: [0, H - 0.3, 0] })
-// quick release mount and the rotation motor base (the Pro3 turns itself on the mount)
+// quick-release plate (female 3/8"-16 thread) under the body; the body pans on it
+lab.mesh(GEO.disc(0.035, 0.02, 0.003), MAT.aluminiumMachined(), { name: 'Quick-release mount (3/8")', pos: [0, H - 0.1, 0], explode: [0, -0.1, 0], label: 'Quick release · 3/8"' })
 const turn = new THREE.Group(); lab.add(turn, { name: 'Rotating body', count: 0 })
-lab.mesh(GEO.disc(0.035, 0.02, 0.003), blackM, { name: 'Quick release mount', pos: [0, H - 0.17, 0], explode: [0, -0.1, 0] })
-// ---------------------------------------------------------------- scanner body (181 x 161 x 76 mm)
-const Y0 = H - 0.16
-lab.add(new THREE.Mesh(GEO.rbox(0.161, 0.15, 0.076, 0.024), bodyM), { name: 'Body', parent: turn, explode: [0, 0, -0.12], xray: 'shell', label: 'Pro3 · 2.2 kg' }).position.set(0, Y0 + 0.075, 0)
-lab.add(new THREE.Mesh(GEO.rbox(0.163, 0.012, 0.078, 0.005), accentM), { name: 'Accent band', parent: turn, explode: [0, 0, -0.14] }).position.set(0, Y0 + 0.1, 0)
-// camera module on the front: lens behind a round window
+// ---------------------------------------------------------------- body: 181 mm tall, 161 mm wide, 76 mm deep (Matterport, n.d.)
+// The LiDAR mirror sits in the middle of the front and spins about the left-right axis, so the
+// beam sweeps a vertical plane (295 deg; the body blocks the rest). The whole body pans 360 deg
+// in under 20 s, which turns that plane into a sphere. One large camera lens sits above it.
+const BH = 0.181, BW = 0.161, BD = 0.076, YC = H        // body centre at the mirror height
+lab.add(new THREE.Mesh(GEO.rbox(BW, BH, BD, 0.03), bodyM), { name: 'Body', parent: turn, explode: [0, 0, -0.14], xray: 'shell', label: 'Pro3 · 2.2 kg · IP43' }).position.set(0, YC + 0.0005, 0)
 const disc = (r, h) => { const g = GEO.disc(r, h, h * 0.15, 48); g.rotateX(Math.PI / 2); return g }
-lab.add(new THREE.Mesh(disc(0.022, 0.012), blackM), { name: 'Camera lens barrel', parent: turn, explode: [0, 0, 0.12] }).position.set(0, Y0 + 0.06, 0.042)
-lab.add(new THREE.Mesh(disc(0.016, 0.004), glassM), { name: 'Camera front element', parent: turn, explode: [0, 0, 0.14], label: 'Camera · 134.2 MP pano' }).position.set(0, Y0 + 0.06, 0.049)
-lab.add(new THREE.Mesh(GEO.rbox(0.012, 0.012, 0.002, 0.001), MAT.paint({ color: [0.2, 0.12, 0.35], roughness: 0.15 })), { name: 'Image sensor', parent: turn, explode: [0, 0, 0.08] }).position.set(0, Y0 + 0.06, 0.03)
-lab.add(new THREE.Mesh(GEO.rbox(0.12, 0.1, 0.0016, 0.0005), pcbM), { name: 'Main board', parent: turn, explode: [0, 0, -0.06] }).position.set(0, Y0 + 0.07, -0.01)
-lab.add(new THREE.Mesh(GEO.rbox(0.07, 0.05, 0.03, 0.004), MAT.paint({ color: [0.2, 0.22, 0.26] })), { name: 'Swappable battery', parent: turn, explode: [0, -0.06, -0.14], label: 'Swappable battery 258 g' }).position.set(0, Y0 + 0.035, -0.024)
-lab.add(new THREE.Mesh(GEO.disc(0.012, 0.012), MAT.copper()), { name: 'Pan motor', parent: turn, explode: [0, -0.08, 0] }).position.set(0, Y0 + 0.01, 0)
-// LiDAR head on top: a spinning mirror drum under a glass dome (sees 295 deg vertically)
-const lidar = new THREE.Group(); lidar.position.set(0, Y0 + 0.15, 0); turn.add(lidar)
-lab.add(new THREE.Mesh(GEO.disc(0.032, 0.012, 0.003), accentM), { name: 'LiDAR collar', parent: lidar, explode: [0, 0.08, 0] }).position.y = 0.006
-const mirror = new THREE.Group(); mirror.position.y = 0.03; lidar.add(mirror)
-lab.add(new THREE.Mesh(GEO.rbox(0.03, 0.022, 0.004, 0.001), MAT.chrome()), { name: 'Scan mirror', parent: mirror, explode: [0, 0.14, 0], label: 'LiDAR scan mirror' }).rotation.x = Math.PI / 4
-lab.add(new THREE.Mesh(GEO.lathe([[0.03, 0], [0.031, 0.02], [0.022, 0.042], [0, 0.048]], 48), MAT.glass({ thickness: 0.002 })), { name: 'LiDAR window', parent: lidar, explode: [0, 0.2, 0] }).position.y = 0.012
-lab.add(new THREE.Mesh(GEO.rbox(0.01, 0.01, 0.014, 0.002), blackM), { name: 'Laser + receiver', parent: lidar, explode: [0, 0.1, 0.05] }).position.set(0, 0.012, 0)
+// camera: large lens in the upper front
+lab.add(new THREE.Mesh(disc(0.03, 0.012), blackM), { name: 'Camera lens barrel', parent: turn, explode: [0, 0.04, 0.14] }).position.set(0, YC + 0.045, BD / 2 + 0.004)
+lab.add(new THREE.Mesh(disc(0.022, 0.004), glassM), { name: 'Camera front element', parent: turn, explode: [0, 0.04, 0.16], label: 'Camera · 134.2 MP panorama' }).position.set(0, YC + 0.045, BD / 2 + 0.01)
+lab.add(new THREE.Mesh(GEO.rbox(0.014, 0.011, 0.002, 0.001), MAT.paint({ color: [0.2, 0.12, 0.35], roughness: 0.15 })), { name: 'Image sensor', parent: turn, explode: [0, 0.04, 0.09] }).position.set(0, YC + 0.045, BD / 2 - 0.016)
+// LiDAR: a horizontal window across the middle of the front, with the spinning mirror behind it
+lab.add(new THREE.Mesh(GEO.rbox(0.11, 0.03, 0.004, 0.002), MAT.glass({ color: [0.35, 0.37, 0.42], thickness: 0.002 })), { name: 'LiDAR window', parent: turn, explode: [0, -0.02, 0.18] }).position.set(0, YC - 0.012, BD / 2 + 0.001)
+const mirror = new THREE.Group(); mirror.position.set(0, YC - 0.012, BD / 2 - 0.012); turn.add(mirror)
+lab.add(new THREE.Mesh(GEO.rbox(0.05, 0.02, 0.003, 0.001), MAT.chrome()), { name: 'LiDAR scan mirror', parent: mirror, explode: [0, -0.02, 0.12], label: 'LiDAR mirror · 100k pts/s' }).rotation.x = Math.PI / 4
+lab.add(new THREE.Mesh(GEO.tube(0.006, 0, 0.07), MAT.steel()), { name: 'Mirror shaft', parent: mirror, explode: [0, -0.02, 0.1] }).rotation.z = Math.PI / 2
+lab.add(new THREE.Mesh(GEO.rbox(0.014, 0.014, 0.02, 0.002), blackM), { name: 'Laser + receiver', parent: turn, explode: [0.06, -0.04, 0.06] }).position.set(0.04, YC - 0.012, 0.0)
+lab.add(new THREE.Mesh(GEO.rbox(0.13, 0.15, 0.0016, 0.0005), pcbM), { name: 'Main board', parent: turn, explode: [0, 0, -0.08] }).position.set(0, YC + 0.005, -0.012)
+// back: small status screen and power button; base: battery slot (removable, 45 Wh) and the pan motor
+lab.add(new THREE.Mesh(GEO.rbox(0.04, 0.025, 0.002, 0.002), MAT.paint({ color: [0.03, 0.05, 0.08], roughness: 0.05, clearcoat: 1 })), { name: 'Status screen', parent: turn, explode: [0, 0, -0.18] }).position.set(0, YC + 0.05, -BD / 2 - 0.0005)
+lab.add(new THREE.Mesh(disc(0.006, 0.004), MAT.paint({ color: [0.85, 0.85, 0.86] })), { name: 'Power button', parent: turn, explode: [0, 0, -0.18] }).position.set(0, YC + 0.02, -BD / 2 - 0.001)
+lab.add(new THREE.Mesh(GEO.rbox(0.1, 0.03, 0.05, 0.004), MAT.paint({ color: [0.2, 0.22, 0.26] })), { name: 'Removable battery (45 Wh)', parent: turn, explode: [0, -0.1, -0.12], label: 'Battery · 45 Wh' }).position.set(0, YC - 0.07, -0.006)
+lab.add(new THREE.Mesh(GEO.disc(0.014, 0.014), MAT.copper()), { name: 'Pan motor', parent: turn, explode: [0, -0.12, 0] }).position.set(0, YC - BH / 2 + 0.01, 0)
+// a flash marker that lights at each of the four camera stops
+const stopFlash = new THREE.Mesh(new THREE.SphereGeometry(0.008, 16, 10), MAT.glow({ emissive: [0.2, 0.6, 1.0], emissiveIntensity: 0 })); stopFlash.position.set(0, YC + 0.045, BD / 2 + 0.03); stopFlash.userData.noAO = true; turn.add(stopFlash)
 
 // ---------------------------------------------------------------- a corner of the room being scanned (two walls, a floor strip)
 const RW = 1.2
@@ -97,13 +104,13 @@ const rng = lab.slider({ id: 'r', label: 'Distance to surface', min: 0.5, max: 1
 let mirrorOn = false
 lab.onTick((dt, l, rdt) => {
   const r = rng.value
-  const dth = THREE.MathUtils.degToRad(1 / PPD)
+  const dth = THREE.MathUtils.degToRad(DTH)
   const spacing = r * dth                                  // m between neighbouring points
   const texel = r * (2 * Math.PI / PANO_W)                 // m per panorama pixel
-  const err = 0.02 * (r / 10)                              // +-20 mm at 10 m, grows linearly (teaching model)
   // animate: the body pans slowly (real: about 20 s per 360), the mirror spins fast
   turn.rotation.y += rdt * (2 * Math.PI / 20)
-  mirror.rotation.y += rdt * 40
+  mirror.rotation.x += rdt * 40
+  const stop = ((turn.rotation.y % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2); stopFlash.material.emissiveIntensity = stop < 0.06 ? 8 : 0
   // deposit points: the beam sweeps a vertical plane that rotates with the body
   for (let k = 0; k < 6; k++) {
     scanA += 0.21
@@ -113,18 +120,18 @@ lab.onTick((dt, l, rdt) => {
     const i = np % NP; pts.set(h.p.toArray(), i * 3)
     const c = h.ghost ? [0.84, 0.37, 0] : turbo(h.p.distanceTo(new THREE.Vector3(0, H, 0)) / 2.4)
     cols.set(c, i * 3); np++; if (h.ghost) ghosts++
-    if (k === 5) { const b = beam.geometry.attributes.position; b.setXYZ(0, 0, H + 0.02, 0); b.setXYZ(1, h.hit.x, h.hit.y, h.hit.z); b.needsUpdate = true }
+    if (k === 5) { const b = beam.geometry.attributes.position; b.setXYZ(0, Math.sin(turn.rotation.y) * 0.03, H - 0.012, Math.cos(turn.rotation.y) * 0.03); b.setXYZ(1, h.hit.x, h.hit.y, h.hit.z); b.needsUpdate = true }
   }
   pg.setDrawRange(0, Math.min(np, NP)); pg.attributes.position.needsUpdate = true; pg.attributes.color.needsUpdate = true
   lab.setHero(spacing * 1000, {
     state: spacing < 0.01 ? 'fine detail' : spacing < 0.05 ? 'room detail' : 'coarse',
-    sub: `${PPD} points/° · panorama texel ${fmt(texel * 1000, 1)} mm (${fmt(PANO_W)} px wide) · range error ±${fmt(err * 1000)} mm${mirrorOn ? ` · ${fmt(ghosts)} phantom points behind the mirror` : ''}`,
+    sub: `one point every ${fmt(DTH, 2)}° (1.5 M points per scan) · panorama pixel ${fmt(texel * 1000, 1)} mm · spec accuracy ±20 mm at 10 m${r > 20 ? ' · beyond 20 m only in the E57 export' : ''}${mirrorOn ? ` · ${fmt(ghosts)} phantom points behind the mirror` : ''}`,
     bad: mirrorOn,
   })
 })
 lab.breakIt({ label: 'Scan a mirror', run: () => { mirrorOn = true; ghosts = 0 }, reset: () => { mirrorOn = false } })
-lab.how(`The Pro3 combines two instruments. A <b>LiDAR</b> spins a mirror to throw laser pulses up and down, timing each echo (time of flight, d = c·t/2), while the whole body pans 360°, so in under 20 s it fills a sphere with up to about 1.5 million points. A <b>camera</b> takes 5-exposure HDR photos all around for a 134-megapixel panorama, which colours the points and becomes the walkthrough view. Points spread out with distance: at 10 points per degree they sit r·Δθ apart. Detail on a far wall therefore needs a closer scan position, which is why you scan every 2–3 m. Mirrors and glass break the assumption that light goes straight: the scanner places reflected points <b>behind</b> the mirror, a phantom room you must clean up before the twin is used. The animation is slowed; the error model is linear in range.` +
-  refsHTML(['Matterport. (n.d.). <i>Matterport Pro3 camera</i>. https://matterport.com/store/product/cam-mc300-x', 'Vosselman, G., &amp; Maas, H.-G. (Eds.). (2010). <i>Airborne and terrestrial laser scanning</i>. Whittles Publishing.']),
-  ['d = c · Δt / 2', 's = r · Δθ,  Δθ = 0.1°', 'texel = r · 2π / W<sub>pano</sub>,  W ≈ 16,400 px', 'σ<sub>r</sub> ≈ 20 mm · r / 10 m', 'ghost: r<sub>reported</sub> = r<sub>mirror</sub> + r<sub>reflected</sub>'])
+lab.how(`The Pro3 combines two instruments in one turning body. A <b>LiDAR</b> fires laser pulses at a mirror in the middle of the front; the mirror spins and sweeps the beam up and down (295°), and timing each echo gives its distance (time of flight). The whole body pans 360° on its tripod mount in under 20 s, turning that sweep into a sphere of up to 1.5 million points. At <b>four stops</b> the large <b>camera</b> lens takes 5-exposure HDR photos, which become the 134-megapixel panorama that colours the points and the walkthrough view. Spreading 1.5 million points over the sphere leaves one point every ≈ 0.27°, so points sit r·Δθ apart: about 5 cm on a wall 10 m away, which is why you scan every few metres. Mirrors and glass break the assumption that light travels straight: the scanner places reflected points <b>behind</b> the mirror, a phantom room to clean up before the twin is used. The scan is slowed down here, and the mirror's exact position inside the case is simplified.` +
+  refsHTML(['Matterport. (n.d.). <i>Matterport Pro3 camera</i> [Product specifications]. https://matterport.com/store/product/cam-mc300-x', 'Vosselman, G., &amp; Maas, H.-G. (Eds.). (2010). <i>Airborne and terrestrial laser scanning</i>. Whittles Publishing.']),
+  ['d = c · Δt / 2', 'Δθ = √(360° · 295° / 1.5 M) ≈ 0.27°', 's = r · Δθ   (10 m → ≈ 46 mm)', 'pixel = r · 2π / W<sub>pano</sub>,  W ≈ 16,400 px', 'ghost: r<sub>reported</sub> = r<sub>to mirror</sub> + r<sub>after mirror</sub>'])
 addXR(lab, { mag: 1, tips: ['VR tip: stand where the scanner stands; the points are what it sees'] })
 lab.start()

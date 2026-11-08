@@ -24,7 +24,7 @@ const lab = new Lab({
   cut: { a: [1, 0, 0], b: [0, 1, 0], center: [0, EY, ZV], reach: 0.35 },
   pills: ['XR display', 'Tracking', 'WebXR'],
 })
-chrome('Meta Quest 3')
+chrome('quest3')
 
 // ---------------------------------------------------------------- materials
 const whiteM = MAT.plastic({ color: [0.86, 0.86, 0.85], roughness: 0.38 })

@@ -22,7 +22,7 @@ const lab = new Lab({
   cut: { a: [1, 0, 0], b: [0, 0, 1], center: [0, CY, 0], reach: 0.3 },
   pills: ['IR LEDs', 'Sensor fusion', 'WebXR'],
 })
-chrome('Touch Plus')
+chrome('touch')
 
 const shellM = MAT.plastic({ color: [0.88, 0.88, 0.87], roughness: 0.4 })
 const faceM = MAT.plastic({ color: [0.06, 0.06, 0.065], roughness: 0.25, clearcoat: 0.6 })

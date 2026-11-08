@@ -23,11 +23,11 @@ const lab = new Lab({
   prompt: 'a stereo depth camera: how do two eyes 12 cm apart measure distance?',
   no: 1, title: 'ZED 2i', sub: 'stereo depth',
   size: 0.24,
-  view: { az: 32, el: 16, dist: 1.9, target: [0, 0.1, 0.05], fov: 30 },
+  view: { az: 34, el: 22, dist: 2.2, target: [0, 0.09, 0.07], fov: 30 },
   cut: { a: [0, 1, 0], b: [0, 0, 1], center: [0, CY, 0], reach: 0.3 },
   pills: ['Stereo vision', 'Depth', 'WebXR'],
 })
-chrome('ZED 2i')
+chrome('zed2i')
 
 // ---------------------------------------------------------------- materials
 const shellM = MAT.satin({ color: [0.06, 0.065, 0.07], roughness: 0.48 })
@@ -70,7 +70,8 @@ for (const s of [-1, 1]) {
   const dot = new THREE.Mesh(new THREE.SphereGeometry(0.00045, 12, 8), MAT.glow({ emissive: [1, 0.62, 0], emissiveIntensity: 6 }))
   dot.userData.noAO = true; dot.castShadow = false; sens.add(dot); dot.position.z = 0.0006
   // field of view of this eye: 110 deg x 70 deg
-  const fr = frustum(110, 70, 0.06, s < 0 ? 0x0072B2 : 0xE69F00, 0.35); fr.position.set(x, CY, ZF); lab.fx.add(fr)
+  const fr = frustum(110, 70, 0.06,  // spec field of view: 110° × 70°
+    s < 0 ? 0x0072B2 : 0xE69F00, 0.35); fr.position.set(x, CY, ZF); lab.fx.add(fr)
   eyes.push({ x, dot, fr })
 }
 
@@ -109,9 +110,22 @@ board.rotation.y = Math.PI
 target.add(board)
 const stand = new THREE.Mesh(GEO.tube(0.0015, 0, 0.1), MAT.steel()); target.add(stand)
 const base = new THREE.Mesh(GEO.disc(0.014, 0.003), MAT.steelDark()); target.add(base)
-lab.add(target, { name: 'Checkerboard target', label: 'Target', value: () => `${fmt(Zc.value, 1)} m (drawn closer)` })
+lab.add(target, { name: 'Checkerboard target', label: 'Target', value: () => `${fmt(Zc.value, 1)} m · see the ruler` })
 const rays = eyes.map((e, i) => { const l = polyline([[e.x, CY, ZF], [0, CY, 0.2]], i ? 0xE69F00 : 0x0072B2); lab.fx.add(l); return l })
 // depth uncertainty band: a translucent orange bar along the optical axis, length ~ dZ
+// a printed distance ruler on the floor: the real metres, on a log scale, under the drawn target
+const ruler = (() => {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 160; const g = c.getContext('2d')
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 1024, 160); g.fillStyle = '#1B2027'; g.font = '600 34px Inter, sans-serif'
+  const X = (m) => 40 + 944 * Math.log(m / 0.3) / Math.log(20 / 0.3)
+  g.fillRect(40, 70, 944, 4)
+  for (const m of [0.3, 0.5, 1, 2, 3, 5, 10, 20]) { g.fillRect(X(m) - 2, 50, 4, 40); const t = m + ' m'; g.fillText(t, Math.min(1024 - g.measureText(t).width - 6, Math.max(6, X(m) - g.measureText(t).width / 2)), 130) }
+  g.fillStyle = '#5E6773'; g.font = '500 24px Inter, sans-serif'; g.fillText('real distance (log scale)', 40, 36)
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.019), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 }))
+  m.rotation.x = -Math.PI / 2; m.rotation.z = -Math.PI / 2; m.position.set(0.03, 0.0008, ZF + 0.14); return m
+})()
+lab.add(ruler, { name: 'Distance ruler (log scale)' })
 const band = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 1), new THREE.MeshBasicMaterial({ color: 0xE69F00, transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false }))
 band.layers.set(1); lab.fx.add(band)
 
@@ -129,7 +143,6 @@ lab.onTick((dt) => {
   const d = f * B / Z                              // disparity (px)
   const dmax = DMAX_FRAC * m[1]                    // matcher search range (px)
   const dZ = Z * Z * DD / (f * B)                  // depth error (m)
-  const hfov = 2 * Math.atan((m[1] * m[4] * PIX / 2) / F_MM) * 180 / Math.PI
   const ok = d <= dmax
   // place the drawn target: 0.3 m -> 10 cm in front, 20 m -> 30 cm in front (log scale)
   const zs = ZF + lerp(0.08, 0.2, Math.log(Z / 0.3) / Math.log(20 / 0.3))
@@ -144,12 +157,12 @@ lab.onTick((dt) => {
   }
   band.position.set(0, CY, zs); band.scale.z = clamp(dZ / Z * 0.6, 0.002, 0.2)
   band.visible = ok
-  if (ok) lab.setHero(dZ * 100, { state: Z < 1 ? 'close range' : Z < 8 ? 'good depth' : 'long range', sub: `disparity ${fmt(d, 1)} px · f ${fmt(f)} px · ${fmt(dZ / Z * 100, 2)} % of range · rectified HFOV ${fmt(hfov)}°`, bad: dZ / Z > 0.05 })
+  if (ok) lab.setHero(dZ * 100, { state: Z < 1 ? 'close range' : Z < 8 ? 'good depth' : 'long range', sub: `disparity ${fmt(d, 1)} px · f ${fmt(f)} px · error ${fmt(dZ / Z * 100, 2)} % of the distance (Stereolabs spec: under 1 % to 3 m, under 5 % to 15 m)`, bad: dZ / Z > 0.05 })
   else lab.setHero(0, { state: 'no match', sub: `disparity ${fmt(d)} px exceeds the ${fmt(dmax)} px search range: closer than f·B/d<sub>max</sub> = ${fmt(f * B / dmax, 2)} m, the two views no longer overlap`, bad: true })
 })
 
 lab.breakIt({ label: 'Too close', run: () => { broken = true }, reset: () => { broken = false } })
-lab.how(`Two cameras 12 cm apart see the same point at slightly different image positions. That shift, the <b>disparity</b> <i>d</i>, shrinks with distance, so depth comes from triangulation. A fixed matching error of a quarter pixel therefore costs more and more depth as the point recedes: error grows with the <b>square</b> of distance. Binning (WVGA, HD720) halves the focal length in pixels and doubles the error. Too close, the disparity exceeds the matcher's search range and depth fails. In a digital twin this sets how far a ZED can map a room before the walls get noisy.` +
+lab.how(`Two cameras 12 cm apart see the same point at slightly different image positions. That shift, the <b>disparity</b> <i>d</i>, shrinks with distance, so depth comes from triangulation. A fixed matching error of a quarter pixel therefore costs more and more depth as the point recedes: error grows with the <b>square</b> of distance. Binning (WVGA, HD720) halves the focal length in pixels and doubles the error. The model predicts about 0.6 % at 3 m and 3 % at 15 m, inside Stereolabs' published accuracy. The target is drawn close so it fits the frame; the ruler on the floor shows its real distance. Too close, the disparity exceeds the matcher's search range and depth fails. In a digital twin this sets how far a ZED can map a room before the walls get noisy.` +
   refsHTML(['Hartley, R., &amp; Zisserman, A. (2004). <i>Multiple view geometry in computer vision</i> (2nd ed.). Cambridge University Press.', 'Stereolabs. (n.d.). <i>ZED 2i</i> [Product specifications]. https://www.stereolabs.com/en-at/store/products/zed-2i']),
   ['d = f·B / Z', 'ΔZ = Z²·Δd / (f·B),  Δd ≈ 0.25 px', 'f<sub>px</sub> = f<sub>mm</sub> / p = 2.1 mm / 2 µm = 1050 px', 'HFOV = 2·atan(W·p / 2f)', 'Z<sub>min</sub> = f·B / d<sub>max</sub>'])
 addXR(lab, { mag: 4, yaw: 55, tips: ['MR tip: hold your hand 30 cm from the lenses, the ZED minimum range'] })

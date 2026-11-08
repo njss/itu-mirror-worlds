@@ -1849,19 +1849,169 @@ export function polyline(points, color = 0xE69F00, opacity = 0.9) {
   return l
 }
 
-/** top-left link back to the book and the Device Lab index, plus a little CSS for references */
-export function chrome(title) {
+// =====================================================================================
+//  The Device Lab shell: the same look and structure as the Mirror Worlds book
+//  (frosted top bar, contents menu, numbered pages, a work card with Predict → Test → Prove)
+// =====================================================================================
+/** every device, in contents order; `lessons` are book lesson ids (opened as /#id) */
+export const DEVICES = [
+  { id: 'quest3', name: 'Meta Quest 3', group: 'Headsets', lessons: [['twin', 'Model, shadow, twin']],
+    predict: { q: 'You raise Unity\'s render scale from 1.0 to 1.4 at 90 Hz. How many more pixels must the GPU shade each second?', options: ['1.4 times as many', 'About 2 times as many', 'The same number, just sharper'], answer: 1,
+      why: 'Render scale multiplies both width and height, so the pixel count grows with its square: 1.4² ≈ 1.96. Try it on the Unity render scale slider and watch the Mpx/s figure.' } },
+  { id: 'varjo', name: 'Varjo XR-3 · XR-4', group: 'Headsets', lessons: [['sync', 'Validating the twin']],
+    predict: { q: 'Straight ahead your eye resolves about 60 pixels per degree. How much does it resolve 20° to the side?', options: ['Still about 60 px/°', 'About 6 px/°', 'About 20 px/°'], answer: 1,
+      why: 'Acuity halves within about 2.3° of the gaze: 60 / (1 + 20/2.3) ≈ 6 px/°. That is why eye-tracked foveated rendering can spend full resolution only where you look.' } },
+  { id: 'ml2', name: 'Magic Leap 2', group: 'Headsets', lessons: [],
+    predict: { q: 'With dimming off, you walk from a 500 lx lab to a 5,000 lx window. What happens to the hologram\'s contrast?', options: ['It stays the same', 'It drops about 10 times', 'It gets better'], answer: 1,
+      why: 'See-through AR can only add light. Ten times more room light coming through the lens means roughly ten times less contrast for the same hologram, until the dimmer cuts the background.' } },
+  { id: 'touch', name: 'Touch Plus controllers', group: 'Tracking & input', lessons: [],
+    predict: { q: 'How many of the controller\'s LEDs must one headset camera see to compute its full position and orientation?', options: ['One', 'Four or more', 'All of them'], answer: 1,
+      why: 'Perspective-n-point needs at least four known points (three give several possible poses). With fewer, the IMU carries on alone and drift grows with time squared.' } },
+  { id: 'tracking', name: 'Lighthouse vs inside-out', group: 'Tracking & input', lessons: [['sync', 'Validating the twin'], ['bidir', 'Bidirectional twin data']],
+    predict: { q: 'A Vive Tracker moves from 1 m to 4 m away from the base station. What happens to its position jitter?', options: ['It stays the same', 'It grows about 4 times', 'It grows about 16 times'], answer: 1,
+      why: 'The station measures angles. The same angular noise covers a distance proportional to range, so jitter grows linearly: four times further, four times the jitter.' } },
+  { id: 'zed2i', name: 'ZED 2i', group: 'Reality capture', lessons: [['stereo', 'Depth from stereo'], ['camera', 'The pinhole camera']],
+    predict: { q: 'At 1 m the ZED 2i (HD1080) measures depth to within about 2 mm. How good is it at 10 m?', options: ['About 2 cm (10× worse)', 'About 20 cm (100× worse)', 'Still about 2 mm'], answer: 1,
+      why: 'Disparity shrinks as 1/Z, so a fixed matching error costs depth that grows with Z². Ten times further is a hundred times the error: about 20 cm at 10 m.' } },
+  { id: 'pro3', name: 'Matterport Pro3', group: 'Reality capture', lessons: [['lidar', 'LiDAR and point clouds']],
+    predict: { q: 'A Pro3 scan holds about 1.5 million points over its full sphere. How far apart are neighbouring points on a wall 10 m away?', options: ['About 5 mm', 'About 5 cm', 'About 50 cm'], answer: 1,
+      why: '1.5 million points over 360° × 295° is one point every ≈ 0.27°. At 10 m that is 10 m × 0.0047 rad ≈ 4.6 cm, which is why you scan every few metres.' } },
+  { id: 'x5', name: 'Insta360 X5', group: 'Reality capture', lessons: [['splats', 'From photos to Gaussian splats'], ['gsanat', 'Inside one Gaussian splat']],
+    predict: { q: 'A person stands on the stitch line 0.5 m from the X5, recording in 8K. How far apart are their two images at the seam?', options: ['Under 5 pixels', 'About 70 pixels', 'About 700 pixels'], answer: 1,
+      why: 'The lenses are about 3 cm apart: atan(0.03 / 0.5) ≈ 3.4°, and 8K has 21.3 px/°, so ≈ 73 px. Optical-flow stitching struggles; keep people about 1 m or more away.' } },
+]
+
+let SHELL = null
+/** register the page: builds the top bar now and the work card when the lab starts */
+export function chrome(id) {
+  const i = DEVICES.findIndex((d) => d.id === id), D = DEVICES[i]
+  SHELL = { i, D }
+  if (window.__lab) window.__lab.o.no = i + 1          // number devices in contents order
   const s = document.createElement('style')
-  s.textContent = `.dl-nav{position:fixed;left:18px;top:84px;z-index:40;font:500 12px Inter,system-ui,sans-serif;display:flex;gap:8px}
-  .dl-nav a{color:#16181b;text-decoration:none;background:#fff;border:1px solid rgba(0,0,0,.15);padding:6px 11px;border-radius:999px}
-  .lab-night .dl-nav a{background:#1b1d21;color:#eee;border-color:#333}
-  .dl-refs{margin-top:10px;font-size:11px;line-height:1.45;opacity:.85}.dl-refs p{margin:4px 0 0;padding-left:1.4em;text-indent:-1.4em}
-  .lab-embed .dl-nav{display:none}`
+  s.textContent = SHELL_CSS
   document.head.appendChild(s)
-  const n = document.createElement('div'); n.className = 'dl-nav'
-  n.innerHTML = `<a href="/">← Mirror Worlds book</a><a href="/lab/">Device Lab</a>`
-  document.body.appendChild(n)
+  const bar = document.createElement('header'); bar.className = 'dl-top'
+  const groups = [...new Set(DEVICES.map((d) => d.group))]
+  bar.innerHTML = `
+    <a class="dl-brand" href="/"><b><span class="m">Mirror</span> <span class="w">Worlds</span></b><small>Device Lab</small></a>
+    <nav class="dl-chap" aria-label="Devices">
+      <button type="button" class="dl-tocbtn" aria-expanded="false">Contents</button>
+      <span class="dl-tname">${D.group}</span>
+      ${DEVICES.map((d, k) => `<a href="/lab/${d.id}" title="${d.name}" ${k === i ? 'aria-current="true"' : ''}>${String(k + 1).padStart(2, '0')}</a>`).join('')}
+    </nav>
+    <div class="dl-tools"><a class="dl-btn" href="/">Book</a><span class="dl-xr"></span></div>
+    <div class="dl-toc" hidden><div class="dl-toc-grid">${groups.map((g) => `<div><h4>${g}</h4>${DEVICES.map((d, k) => d.group !== g ? '' : `<a href="/lab/${d.id}" ${k === i ? 'aria-current="true"' : ''}><span class="n">${String(k + 1).padStart(2, '0')}</span><span class="t">${d.name}</span></a>`).join('')}</div>`).join('')}
+      <div><h4>Overview</h4><a href="/lab/"><span class="n">··</span><span class="t">All devices</span></a><a href="/"><span class="n">↗</span><span class="t">Back to the book</span></a></div></div></div>`
+  document.body.appendChild(bar)
+  const tb = bar.querySelector('.dl-tocbtn'), toc = bar.querySelector('.dl-toc')
+  tb.addEventListener('click', () => { const open = toc.hidden; toc.hidden = !open; tb.setAttribute('aria-expanded', String(open)) })
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') { toc.hidden = true; tb.setAttribute('aria-expanded', 'false') } })
 }
+
+/** turn the kit's side column into the book's work card: eyebrow, title, Predict, Test, Prove, pager */
+function buildCard(lab) {
+  if (!SHELL || lab.embed) return
+  const { i, D } = SHELL, side = lab.$('.lab-side'), how = lab.$('.lab-how')
+  const prev = DEVICES[i - 1], next = DEVICES[i + 1]
+  side.classList.add('on', 'dl-card')
+  const no = side.querySelector('.lab-no'), title = side.querySelector('.lab-title'), metric = side.querySelector('.lab-metric'), ctls = side.querySelector('.lab-ctls')
+  no.innerHTML = `Device ${String(i + 1).padStart(2, '0')} · ${D.group}`
+  const ask = document.createElement('p'); ask.className = 'dl-ask'; ask.textContent = lab.o.prompt ?? ''
+  const links = D.lessons.length ? `<p class="dl-links">In the book: ${D.lessons.map(([id, t]) => `<a href="/#${id}">${t} ↗</a>`).join('')}</p>` : ''
+  const P = D.predict
+  const pred = document.createElement('section'); pred.className = 'dl-step'
+  pred.innerHTML = `<h3><b>1</b>Predict</h3><p class="dl-q">${P.q}</p><div class="dl-opts">${P.options.map((o, k) => `<button type="button" data-k="${k}">${o}</button>`).join('')}</div><p class="dl-note">Your choice locks once you pick it.</p>`
+  const test = document.createElement('section'); test.className = 'dl-step'
+  test.innerHTML = `<h3><b>2</b>Test</h3><p class="dl-hint">Move the slider, then try Explode, Cut away, X-ray and the red button under the model.</p>`
+  test.append(metric, ctls)
+  const prove = document.createElement('section'); prove.className = 'dl-step'
+  prove.innerHTML = `<h3><b>3</b>Prove</h3><button type="button" class="dl-lift">Show the answer</button><div class="dl-answer" hidden></div>`
+  how.classList.add('dl-how'); how.open = false
+  prove.append(how)
+  const pager = document.createElement('nav'); pager.className = 'dl-pager'
+  pager.innerHTML = `${prev ? `<a href="/lab/${prev.id}">← Previous<span>${prev.name}</span></a>` : '<span></span>'}${next ? `<a href="/lab/${next.id}">Next →<span>${next.name}</span></a>` : `<a href="/">Back to the book →<span>Mirror Worlds</span></a>`}`
+  title.insertAdjacentElement('afterend', ask)
+  if (links) ask.insertAdjacentHTML('afterend', links)
+  side.append(pred, test, prove, pager)
+  // predict → lock; prove → reveal the verdict and the reasoning
+  let pick = null
+  try { pick = JSON.parse(localStorage.getItem('dl-pred-' + D.id) ?? 'null') } catch (e) { pick = null }
+  const opts = [...pred.querySelectorAll('button')], note = pred.querySelector('.dl-note'), ans = prove.querySelector('.dl-answer'), lift = prove.querySelector('.dl-lift')
+  const lock = (k) => { pick = k; opts.forEach((b, j) => { b.disabled = true; b.setAttribute('aria-pressed', String(j === k)) }); note.textContent = 'Locked in. Now test it on the model.' }
+  if (pick !== null) lock(pick)
+  opts.forEach((b, k) => b.addEventListener('click', () => { if (pick !== null) return; lock(k); try { localStorage.setItem('dl-pred-' + D.id, String(k)) } catch (e) { /* storage unavailable */ } }))
+  lift.addEventListener('click', () => {
+    const ok = pick === P.answer
+    ans.innerHTML = `<p class="dl-verdict ${pick === null ? '' : ok ? 'ok' : 'no'}">${pick === null ? 'Answer' : ok ? 'Your prediction was right.' : 'Not quite.'} ${P.options[P.answer]}.</p><p>${P.why}</p>`
+    ans.hidden = false; lift.disabled = true; how.open = true
+  })
+  // the XR buttons move into the top bar
+  const xr = document.querySelector('.xr-bar'); if (xr) document.querySelector('.dl-xr')?.append(xr)
+}
+
+const SHELL_CSS = `
+:root{--paper:#F4F6F8;--ink:#1B2027;--mute:#6B7581;--faint:#B3BCC6;--line:#DEE3E9;--accent:#D55E00;--phys:#C2610C;--dig:#1F63B5}
+.lab-prompt,.lab-pills{display:none!important}
+.dl-top{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:10px 18px;flex-wrap:nowrap;padding:10px 16px;
+  background:rgba(255,255,255,.86);-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line);font:500 12px Inter,system-ui,sans-serif}
+.dl-brand{display:flex;flex-direction:column;text-decoration:none;color:var(--ink);line-height:1;white-space:nowrap;flex:0 0 auto}
+.dl-brand b{font:400 26px/1 "Instrument Serif",Georgia,serif;letter-spacing:-.01em} .dl-brand .m{color:var(--phys)} .dl-brand .w{color:var(--dig);font-style:italic}
+.dl-brand small{font:500 10px "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:4px}
+.dl-chap{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1 1 auto}
+.dl-chap > *{flex:0 0 auto}
+.dl-chap a{width:38px!important;min-width:0!important;padding:0!important}
+.dl-chap a,.dl-tocbtn,.dl-btn{font:500 12px "JetBrains Mono",monospace;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:8px;height:32px;min-width:36px;display:inline-grid;place-items:center;padding:0 10px;text-decoration:none;cursor:pointer}
+.dl-tocbtn{color:var(--ink);letter-spacing:.06em;text-transform:uppercase;font-size:11px}
+.dl-tocbtn[aria-expanded="true"],.dl-chap a[aria-current="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.dl-tname{font:600 11px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--phys);padding:0 6px;white-space:nowrap}
+.dl-tools{margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto;white-space:nowrap}
+.dl-btn{color:var(--ink);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.dl-toc{position:absolute;top:100%;left:16px;right:16px;max-width:900px;margin-top:8px;background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 24px 60px -20px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.06)}
+.dl-toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px 22px}
+.dl-toc h4{font:600 11px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--phys);margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.dl-toc a{display:flex;gap:10px;align-items:baseline;padding:7px 8px;border-radius:8px;color:var(--ink);text-decoration:none}
+.dl-toc a:hover{background:#F3F5F8} .dl-toc a[aria-current="true"]{background:var(--ink);color:#fff}
+.dl-toc .n{font:500 11px "JetBrains Mono",monospace;opacity:.7} .dl-toc .t{font:500 14px Inter,sans-serif}
+.dl-xr .xr-bar{position:static;display:flex;gap:6px}
+.dl-xr .xr-bar button{height:32px;padding:0 12px;white-space:nowrap;border-radius:8px;font:600 12px Inter,sans-serif}
+.dl-xr .xr-bar .why{left:auto;right:0;top:40px}
+/* the work card */
+.lab-side.dl-card{top:76px;bottom:16px;right:16px;transform:none;width:min(380px,32vw);background:#fff;border-radius:16px;padding:20px 22px 16px;overflow-y:auto;overscroll-behavior:contain;
+  box-shadow:0 24px 60px -24px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.07)}
+.dl-card .lab-no{font:500 10.5px "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.dl-card .lab-title{font-size:clamp(30px,2.5vw,44px);line-height:1}
+.dl-card .lab-title i{display:inline;font-size:.62em;margin-left:.25em;color:var(--mute)}
+.dl-ask{font:400 14px/1.5 Inter,sans-serif;color:var(--mute);margin:.6em 0 0}
+.dl-links{font:500 11px/1.6 "JetBrains Mono",monospace;color:var(--mute);margin:.5em 0 0}
+.dl-links a{display:inline-block;color:var(--dig);text-decoration:none;border:1px solid rgba(31,99,181,.3);background:rgba(31,99,181,.06);padding:2px 9px;border-radius:999px;margin:.25em .35em 0 0}
+.dl-step{border-top:1px solid var(--line);padding-top:14px;margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.dl-step h3{font:600 11px "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;margin:0;display:flex;gap:9px;align-items:center}
+.dl-step h3 b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;letter-spacing:0}
+.dl-q{font:500 14.5px/1.5 Inter,sans-serif;margin:0}
+.dl-opts{display:grid;gap:7px}
+.dl-opts button{text-align:left;font:400 14px/1.35 Inter,sans-serif;padding:10px 12px;border:1px solid var(--line);background:#F3F5F8;border-radius:10px;cursor:pointer;color:var(--ink)}
+.dl-opts button:hover:not(:disabled){border-color:var(--ink)} .dl-opts button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.dl-opts button:disabled:not([aria-pressed="true"]){opacity:.5;cursor:default}
+.dl-note,.dl-hint{font:400 12px/1.5 Inter,sans-serif;color:var(--mute);margin:0}
+.dl-card .lab-metric{margin-top:0} .dl-card .lab-big{font-size:clamp(48px,4.4vw,80px)}
+.dl-card .lab-metric .lbl,.dl-card .lab-sub,.dl-card .lab-ctl .row{font-size:13px} .dl-card .lab-ctl{margin-top:12px} .dl-card .lab-ctl .ends{font-size:11px}
+.dl-lift{align-self:start;font:600 11px "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase;background:var(--ink);color:#fff;border:0;border-radius:999px;padding:11px 18px;cursor:pointer}
+.dl-lift:disabled{opacity:.45;cursor:default}
+.dl-answer p{margin:0 0 8px;font:400 14px/1.55 Inter,sans-serif} .dl-verdict{font-weight:600!important} .dl-verdict.ok{color:var(--dig)} .dl-verdict.no{color:var(--phys)}
+.lab-how.dl-how{position:static;width:auto;font-size:13px;pointer-events:auto}
+.dl-pager{display:flex;justify-content:space-between;gap:12px;margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.dl-pager a{font:500 11px "JetBrains Mono",monospace;color:var(--ink);text-decoration:none;max-width:48%} .dl-pager a:last-child{text-align:right}
+.dl-pager span{display:block;font:600 14px Inter,sans-serif;margin-top:2px}
+.dl-refs{margin-top:10px;font-size:11px;line-height:1.45;opacity:.85}.dl-refs p{margin:4px 0 0;padding-left:1.4em;text-indent:-1.4em}
+.lab-scale{bottom:calc(4.2vh + 3.4em)}
+.lab-embed .dl-top{display:none}
+.xr-on .dl-top{display:none}
+@media (max-width:760px){
+  .dl-chap a{display:none} .dl-chap .dl-tocbtn{display:inline-grid}
+  .lab-side.dl-card{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-height:46vh}
+  .lab-modes{bottom:calc(46vh + 16px)}
+}
+`
 
 /** dark mannequin head on a display stand, eyes at height ey (m); returns nothing, parts are registered */
 export function headStand(lab, MAT, GEO, ey, z = -0.06) {
@@ -1880,11 +2030,14 @@ export function headStand(lab, MAT, GEO, ey, z = -0.06) {
 const KitLab = typeof window !== 'undefined' ? window.LabKit?.Lab : null
 if (KitLab && !KitLab.prototype._dlPatched) {
   const start0 = KitLab.prototype.start
-  KitLab.prototype.start = function () { for (const p of this.parts) if (!p.obj.position.equals(p.base)) p.base.copy(p.obj.position); return start0.call(this) }
+  KitLab.prototype.start = function () { for (const p of this.parts) if (!p.obj.position.equals(p.base)) p.base.copy(p.obj.position); const r = start0.call(this); buildCard(this); return r }
+  // cool grey studio instead of the kit's warm paper (the floor fades into the same colour)
+  const studio0 = KitLab.prototype._initStudio
+  KitLab.prototype._initStudio = function () { this.o.bg ??= 0xF4F6F8; const r = studio0.call(this); this.key?.color.set(0xffffff); return r }
   KitLab.prototype._dlPatched = true
 }
 
-if (typeof window !== 'undefined') window.DevLab = { addXR, refsHTML, frustum, polyline, chrome, headStand }
+if (typeof window !== 'undefined') window.DevLab = { addXR, refsHTML, frustum, polyline, chrome, headStand, DEVICES }
 
 </script>
 <script type="module">
@@ -1899,7 +2052,8 @@ if (typeof window !== 'undefined') window.DevLab = { addXR, refsHTML, frustum, p
 const { THREE, Lab, MAT, GEO, clamp, lerp, approach, fmt } = window.LabKit
 const { addXR, refsHTML, polyline, chrome } = window.DevLab
 
-const PPD = 10                       // points per degree (E57 export density)
+const PTS = 1.5e6                    // points per 360 deg scan (Matterport, n.d.)
+const DTH = Math.sqrt(360 * 295 / PTS) // mean angular spacing in degrees, about 0.27
 const PANO_W = Math.round(Math.sqrt(134.2e6 * 2))   // equirectangular width for 134.2 MP at 2:1
 const H = 1.45                       // scanner head height on the tripod
 
@@ -1907,11 +2061,11 @@ const lab = new Lab({
   prompt: 'a tripod LiDAR camera that scans a building into a digital twin: what limits the detail?',
   no: 7, title: 'Matterport Pro3', sub: 'LiDAR + 360',
   size: 2.2,
-  view: { az: 30, el: 14, dist: 1.45, target: [0.1, 0.95, -0.2], fov: 30 },
+  view: { az: 30, el: 10, dist: 1.75, target: [0.1, 1.1, -0.2], fov: 30 },
   cut: { a: [0, 0, 1], b: [0, 1, 0], center: [0, H, 0], reach: 0.4 },
   pills: ['LiDAR', 'Point cloud', 'WebXR'],
 })
-chrome('Pro3')
+chrome('pro3')
 
 const bodyM = MAT.plastic({ color: [0.06, 0.06, 0.065], roughness: 0.35 })
 const accentM = MAT.paint({ color: [0.9, 0.9, 0.88], roughness: 0.35 })
@@ -1924,30 +2078,36 @@ const wallM = MAT.paint({ color: [0.86, 0.84, 0.8], roughness: 0.8, clearcoat: 0
 // ---------------------------------------------------------------- tripod
 for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + 0.4; lab.add(new THREE.Mesh(GEO.pipe([[0, H - 0.3, 0], [Math.cos(a) * 0.42, 0.01, Math.sin(a) * 0.42]], 0.012), tripodM), { name: `Tripod leg ${i + 1}`, explode: [Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2] }) }
 for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + 0.4; lab.mesh(GEO.disc(0.018, 0.012), MAT.rubber(), { name: `Foot ${i + 1}`, pos: [Math.cos(a) * 0.42, 0.006, Math.sin(a) * 0.42], explode: [Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2] }) }
-lab.mesh(GEO.tube(0.016, 0, 0.18), tripodM, { name: 'Centre column', pos: [0, H - 0.27, 0] })
+lab.mesh(GEO.tube(0.016, 0, 0.25), tripodM, { name: 'Centre column', pos: [0, H - 0.235, 0] })
 lab.mesh(GEO.disc(0.04, 0.03, 0.004), blackM, { name: 'Leg hub', pos: [0, H - 0.3, 0] })
-// quick release mount and the rotation motor base (the Pro3 turns itself on the mount)
+// quick-release plate (female 3/8"-16 thread) under the body; the body pans on it
+lab.mesh(GEO.disc(0.035, 0.02, 0.003), MAT.aluminiumMachined(), { name: 'Quick-release mount (3/8")', pos: [0, H - 0.1, 0], explode: [0, -0.1, 0], label: 'Quick release · 3/8"' })
 const turn = new THREE.Group(); lab.add(turn, { name: 'Rotating body', count: 0 })
-lab.mesh(GEO.disc(0.035, 0.02, 0.003), blackM, { name: 'Quick release mount', pos: [0, H - 0.17, 0], explode: [0, -0.1, 0] })
-// ---------------------------------------------------------------- scanner body (181 x 161 x 76 mm)
-const Y0 = H - 0.16
-lab.add(new THREE.Mesh(GEO.rbox(0.161, 0.15, 0.076, 0.024), bodyM), { name: 'Body', parent: turn, explode: [0, 0, -0.12], xray: 'shell', label: 'Pro3 · 2.2 kg' }).position.set(0, Y0 + 0.075, 0)
-lab.add(new THREE.Mesh(GEO.rbox(0.163, 0.012, 0.078, 0.005), accentM), { name: 'Accent band', parent: turn, explode: [0, 0, -0.14] }).position.set(0, Y0 + 0.1, 0)
-// camera module on the front: lens behind a round window
+// ---------------------------------------------------------------- body: 181 mm tall, 161 mm wide, 76 mm deep (Matterport, n.d.)
+// The LiDAR mirror sits in the middle of the front and spins about the left-right axis, so the
+// beam sweeps a vertical plane (295 deg; the body blocks the rest). The whole body pans 360 deg
+// in under 20 s, which turns that plane into a sphere. One large camera lens sits above it.
+const BH = 0.181, BW = 0.161, BD = 0.076, YC = H        // body centre at the mirror height
+lab.add(new THREE.Mesh(GEO.rbox(BW, BH, BD, 0.03), bodyM), { name: 'Body', parent: turn, explode: [0, 0, -0.14], xray: 'shell', label: 'Pro3 · 2.2 kg · IP43' }).position.set(0, YC + 0.0005, 0)
 const disc = (r, h) => { const g = GEO.disc(r, h, h * 0.15, 48); g.rotateX(Math.PI / 2); return g }
-lab.add(new THREE.Mesh(disc(0.022, 0.012), blackM), { name: 'Camera lens barrel', parent: turn, explode: [0, 0, 0.12] }).position.set(0, Y0 + 0.06, 0.042)
-lab.add(new THREE.Mesh(disc(0.016, 0.004), glassM), { name: 'Camera front element', parent: turn, explode: [0, 0, 0.14], label: 'Camera · 134.2 MP pano' }).position.set(0, Y0 + 0.06, 0.049)
-lab.add(new THREE.Mesh(GEO.rbox(0.012, 0.012, 0.002, 0.001), MAT.paint({ color: [0.2, 0.12, 0.35], roughness: 0.15 })), { name: 'Image sensor', parent: turn, explode: [0, 0, 0.08] }).position.set(0, Y0 + 0.06, 0.03)
-lab.add(new THREE.Mesh(GEO.rbox(0.12, 0.1, 0.0016, 0.0005), pcbM), { name: 'Main board', parent: turn, explode: [0, 0, -0.06] }).position.set(0, Y0 + 0.07, -0.01)
-lab.add(new THREE.Mesh(GEO.rbox(0.07, 0.05, 0.03, 0.004), MAT.paint({ color: [0.2, 0.22, 0.26] })), { name: 'Swappable battery', parent: turn, explode: [0, -0.06, -0.14], label: 'Swappable battery 258 g' }).position.set(0, Y0 + 0.035, -0.024)
-lab.add(new THREE.Mesh(GEO.disc(0.012, 0.012), MAT.copper()), { name: 'Pan motor', parent: turn, explode: [0, -0.08, 0] }).position.set(0, Y0 + 0.01, 0)
-// LiDAR head on top: a spinning mirror drum under a glass dome (sees 295 deg vertically)
-const lidar = new THREE.Group(); lidar.position.set(0, Y0 + 0.15, 0); turn.add(lidar)
-lab.add(new THREE.Mesh(GEO.disc(0.032, 0.012, 0.003), accentM), { name: 'LiDAR collar', parent: lidar, explode: [0, 0.08, 0] }).position.y = 0.006
-const mirror = new THREE.Group(); mirror.position.y = 0.03; lidar.add(mirror)
-lab.add(new THREE.Mesh(GEO.rbox(0.03, 0.022, 0.004, 0.001), MAT.chrome()), { name: 'Scan mirror', parent: mirror, explode: [0, 0.14, 0], label: 'LiDAR scan mirror' }).rotation.x = Math.PI / 4
-lab.add(new THREE.Mesh(GEO.lathe([[0.03, 0], [0.031, 0.02], [0.022, 0.042], [0, 0.048]], 48), MAT.glass({ thickness: 0.002 })), { name: 'LiDAR window', parent: lidar, explode: [0, 0.2, 0] }).position.y = 0.012
-lab.add(new THREE.Mesh(GEO.rbox(0.01, 0.01, 0.014, 0.002), blackM), { name: 'Laser + receiver', parent: lidar, explode: [0, 0.1, 0.05] }).position.set(0, 0.012, 0)
+// camera: large lens in the upper front
+lab.add(new THREE.Mesh(disc(0.03, 0.012), blackM), { name: 'Camera lens barrel', parent: turn, explode: [0, 0.04, 0.14] }).position.set(0, YC + 0.045, BD / 2 + 0.004)
+lab.add(new THREE.Mesh(disc(0.022, 0.004), glassM), { name: 'Camera front element', parent: turn, explode: [0, 0.04, 0.16], label: 'Camera · 134.2 MP panorama' }).position.set(0, YC + 0.045, BD / 2 + 0.01)
+lab.add(new THREE.Mesh(GEO.rbox(0.014, 0.011, 0.002, 0.001), MAT.paint({ color: [0.2, 0.12, 0.35], roughness: 0.15 })), { name: 'Image sensor', parent: turn, explode: [0, 0.04, 0.09] }).position.set(0, YC + 0.045, BD / 2 - 0.016)
+// LiDAR: a horizontal window across the middle of the front, with the spinning mirror behind it
+lab.add(new THREE.Mesh(GEO.rbox(0.11, 0.03, 0.004, 0.002), MAT.glass({ color: [0.35, 0.37, 0.42], thickness: 0.002 })), { name: 'LiDAR window', parent: turn, explode: [0, -0.02, 0.18] }).position.set(0, YC - 0.012, BD / 2 + 0.001)
+const mirror = new THREE.Group(); mirror.position.set(0, YC - 0.012, BD / 2 - 0.012); turn.add(mirror)
+lab.add(new THREE.Mesh(GEO.rbox(0.05, 0.02, 0.003, 0.001), MAT.chrome()), { name: 'LiDAR scan mirror', parent: mirror, explode: [0, -0.02, 0.12], label: 'LiDAR mirror · 100k pts/s' }).rotation.x = Math.PI / 4
+lab.add(new THREE.Mesh(GEO.tube(0.006, 0, 0.07), MAT.steel()), { name: 'Mirror shaft', parent: mirror, explode: [0, -0.02, 0.1] }).rotation.z = Math.PI / 2
+lab.add(new THREE.Mesh(GEO.rbox(0.014, 0.014, 0.02, 0.002), blackM), { name: 'Laser + receiver', parent: turn, explode: [0.06, -0.04, 0.06] }).position.set(0.04, YC - 0.012, 0.0)
+lab.add(new THREE.Mesh(GEO.rbox(0.13, 0.15, 0.0016, 0.0005), pcbM), { name: 'Main board', parent: turn, explode: [0, 0, -0.08] }).position.set(0, YC + 0.005, -0.012)
+// back: small status screen and power button; base: battery slot (removable, 45 Wh) and the pan motor
+lab.add(new THREE.Mesh(GEO.rbox(0.04, 0.025, 0.002, 0.002), MAT.paint({ color: [0.03, 0.05, 0.08], roughness: 0.05, clearcoat: 1 })), { name: 'Status screen', parent: turn, explode: [0, 0, -0.18] }).position.set(0, YC + 0.05, -BD / 2 - 0.0005)
+lab.add(new THREE.Mesh(disc(0.006, 0.004), MAT.paint({ color: [0.85, 0.85, 0.86] })), { name: 'Power button', parent: turn, explode: [0, 0, -0.18] }).position.set(0, YC + 0.02, -BD / 2 - 0.001)
+lab.add(new THREE.Mesh(GEO.rbox(0.1, 0.03, 0.05, 0.004), MAT.paint({ color: [0.2, 0.22, 0.26] })), { name: 'Removable battery (45 Wh)', parent: turn, explode: [0, -0.1, -0.12], label: 'Battery · 45 Wh' }).position.set(0, YC - 0.07, -0.006)
+lab.add(new THREE.Mesh(GEO.disc(0.014, 0.014), MAT.copper()), { name: 'Pan motor', parent: turn, explode: [0, -0.12, 0] }).position.set(0, YC - BH / 2 + 0.01, 0)
+// a flash marker that lights at each of the four camera stops
+const stopFlash = new THREE.Mesh(new THREE.SphereGeometry(0.008, 16, 10), MAT.glow({ emissive: [0.2, 0.6, 1.0], emissiveIntensity: 0 })); stopFlash.position.set(0, YC + 0.045, BD / 2 + 0.03); stopFlash.userData.noAO = true; turn.add(stopFlash)
 
 // ---------------------------------------------------------------- a corner of the room being scanned (two walls, a floor strip)
 const RW = 1.2
@@ -1987,13 +2147,13 @@ const rng = lab.slider({ id: 'r', label: 'Distance to surface', min: 0.5, max: 1
 let mirrorOn = false
 lab.onTick((dt, l, rdt) => {
   const r = rng.value
-  const dth = THREE.MathUtils.degToRad(1 / PPD)
+  const dth = THREE.MathUtils.degToRad(DTH)
   const spacing = r * dth                                  // m between neighbouring points
   const texel = r * (2 * Math.PI / PANO_W)                 // m per panorama pixel
-  const err = 0.02 * (r / 10)                              // +-20 mm at 10 m, grows linearly (teaching model)
   // animate: the body pans slowly (real: about 20 s per 360), the mirror spins fast
   turn.rotation.y += rdt * (2 * Math.PI / 20)
-  mirror.rotation.y += rdt * 40
+  mirror.rotation.x += rdt * 40
+  const stop = ((turn.rotation.y % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2); stopFlash.material.emissiveIntensity = stop < 0.06 ? 8 : 0
   // deposit points: the beam sweeps a vertical plane that rotates with the body
   for (let k = 0; k < 6; k++) {
     scanA += 0.21
@@ -2003,19 +2163,19 @@ lab.onTick((dt, l, rdt) => {
     const i = np % NP; pts.set(h.p.toArray(), i * 3)
     const c = h.ghost ? [0.84, 0.37, 0] : turbo(h.p.distanceTo(new THREE.Vector3(0, H, 0)) / 2.4)
     cols.set(c, i * 3); np++; if (h.ghost) ghosts++
-    if (k === 5) { const b = beam.geometry.attributes.position; b.setXYZ(0, 0, H + 0.02, 0); b.setXYZ(1, h.hit.x, h.hit.y, h.hit.z); b.needsUpdate = true }
+    if (k === 5) { const b = beam.geometry.attributes.position; b.setXYZ(0, Math.sin(turn.rotation.y) * 0.03, H - 0.012, Math.cos(turn.rotation.y) * 0.03); b.setXYZ(1, h.hit.x, h.hit.y, h.hit.z); b.needsUpdate = true }
   }
   pg.setDrawRange(0, Math.min(np, NP)); pg.attributes.position.needsUpdate = true; pg.attributes.color.needsUpdate = true
   lab.setHero(spacing * 1000, {
     state: spacing < 0.01 ? 'fine detail' : spacing < 0.05 ? 'room detail' : 'coarse',
-    sub: `${PPD} points/° · panorama texel ${fmt(texel * 1000, 1)} mm (${fmt(PANO_W)} px wide) · range error ±${fmt(err * 1000)} mm${mirrorOn ? ` · ${fmt(ghosts)} phantom points behind the mirror` : ''}`,
+    sub: `one point every ${fmt(DTH, 2)}° (1.5 M points per scan) · panorama pixel ${fmt(texel * 1000, 1)} mm · spec accuracy ±20 mm at 10 m${r > 20 ? ' · beyond 20 m only in the E57 export' : ''}${mirrorOn ? ` · ${fmt(ghosts)} phantom points behind the mirror` : ''}`,
     bad: mirrorOn,
   })
 })
 lab.breakIt({ label: 'Scan a mirror', run: () => { mirrorOn = true; ghosts = 0 }, reset: () => { mirrorOn = false } })
-lab.how(`The Pro3 combines two instruments. A <b>LiDAR</b> spins a mirror to throw laser pulses up and down, timing each echo (time of flight, d = c·t/2), while the whole body pans 360°, so in under 20 s it fills a sphere with up to about 1.5 million points. A <b>camera</b> takes 5-exposure HDR photos all around for a 134-megapixel panorama, which colours the points and becomes the walkthrough view. Points spread out with distance: at 10 points per degree they sit r·Δθ apart. Detail on a far wall therefore needs a closer scan position, which is why you scan every 2–3 m. Mirrors and glass break the assumption that light goes straight: the scanner places reflected points <b>behind</b> the mirror, a phantom room you must clean up before the twin is used. The animation is slowed; the error model is linear in range.` +
-  refsHTML(['Matterport. (n.d.). <i>Matterport Pro3 camera</i>. https://matterport.com/store/product/cam-mc300-x', 'Vosselman, G., &amp; Maas, H.-G. (Eds.). (2010). <i>Airborne and terrestrial laser scanning</i>. Whittles Publishing.']),
-  ['d = c · Δt / 2', 's = r · Δθ,  Δθ = 0.1°', 'texel = r · 2π / W<sub>pano</sub>,  W ≈ 16,400 px', 'σ<sub>r</sub> ≈ 20 mm · r / 10 m', 'ghost: r<sub>reported</sub> = r<sub>mirror</sub> + r<sub>reflected</sub>'])
+lab.how(`The Pro3 combines two instruments in one turning body. A <b>LiDAR</b> fires laser pulses at a mirror in the middle of the front; the mirror spins and sweeps the beam up and down (295°), and timing each echo gives its distance (time of flight). The whole body pans 360° on its tripod mount in under 20 s, turning that sweep into a sphere of up to 1.5 million points. At <b>four stops</b> the large <b>camera</b> lens takes 5-exposure HDR photos, which become the 134-megapixel panorama that colours the points and the walkthrough view. Spreading 1.5 million points over the sphere leaves one point every ≈ 0.27°, so points sit r·Δθ apart: about 5 cm on a wall 10 m away, which is why you scan every few metres. Mirrors and glass break the assumption that light travels straight: the scanner places reflected points <b>behind</b> the mirror, a phantom room to clean up before the twin is used. The scan is slowed down here, and the mirror's exact position inside the case is simplified.` +
+  refsHTML(['Matterport. (n.d.). <i>Matterport Pro3 camera</i> [Product specifications]. https://matterport.com/store/product/cam-mc300-x', 'Vosselman, G., &amp; Maas, H.-G. (Eds.). (2010). <i>Airborne and terrestrial laser scanning</i>. Whittles Publishing.']),
+  ['d = c · Δt / 2', 'Δθ = √(360° · 295° / 1.5 M) ≈ 0.27°', 's = r · Δθ   (10 m → ≈ 46 mm)', 'pixel = r · 2π / W<sub>pano</sub>,  W ≈ 16,400 px', 'ghost: r<sub>reported</sub> = r<sub>to mirror</sub> + r<sub>after mirror</sub>'])
 addXR(lab, { mag: 1, tips: ['VR tip: stand where the scanner stands; the points are what it sees'] })
 lab.start()
 
