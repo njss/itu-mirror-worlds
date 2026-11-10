@@ -344,7 +344,46 @@ export function addXR(lab, opt = {}) {
     if (st.on) return
     kitRender(dt)
     if (fix < 3 && ++frames % 60 === 0 && frames <= 2400) checkBlack()    // once a second for ~40 s
+    governor()
   }
+
+  // Adaptive quality. The kit renders at up to 2x pixel ratio with ambient occlusion (GTAO),
+  // bloom and 4x MSAA, which an integrated GPU (e.g. Intel UHD on a 2.5x laptop screen) cannot
+  // keep at 60 fps. When the average frame takes longer than ~22 ms (under ~45 fps) for 1.5 s,
+  // we step down one level: lower pixel ratio, cheaper AO, then no AO, then no bloom.
+  // ?q=high keeps full quality, ?q=low starts at the lowest level.
+  const QL = [
+    { pr: 2, ao: 16, aoOn: true, bloom: true },
+    { pr: 1.5, ao: 8, aoOn: true, bloom: true },
+    { pr: 1.25, ao: 8, aoOn: false, bloom: true },
+    { pr: 1, ao: 8, aoOn: false, bloom: false },
+    { pr: 0.75, ao: 8, aoOn: false, bloom: false }
+  ]
+  const qParam = new URLSearchParams(location.search).get('q')
+  let qLevel = 0, qCap = 2, lastT = 0, ema = 16.7, slowMs = 0, coolMs = 0, warm = 0
+  const setPR = R.setPixelRatio.bind(R)
+  R.setPixelRatio = (v) => setPR(Math.min(v, qCap))                // the kit's resize handler respects the cap
+  function applyQ(l) {
+    qLevel = l; const q = QL[l]; qCap = q.pr
+    const pr = Math.min(devicePixelRatio, qCap)
+    setPR(pr); R.setSize(innerWidth, innerHeight)
+    const C = lab.composer
+    if (C) { C.setPixelRatio(pr); C.setSize(innerWidth, innerHeight) }
+    if (lab.ao) { lab.ao.enabled = q.aoOn; lab.ao.updateGtaoMaterial?.({ samples: q.ao }) }
+    if (lab.bloom) lab.bloom.enabled = q.bloom
+    console.info('[Device Lab] quality level ' + l + ' (pixel ratio ' + pr + (q.aoOn ? '' : ', no AO') + (q.bloom ? '' : ', no bloom') + ')')
+  }
+  function governor() {
+    const now = performance.now(), d = now - lastT; lastT = now
+    if (qParam === 'high' || d > 2000 || document.hidden) return    // hidden tab or a pause: ignore
+    if (++warm < 30) return                                         // let shaders compile first
+    ema += (d - ema) * 0.08
+    if (coolMs > 0) { coolMs -= d; return }
+    slowMs = ema > 22 ? slowMs + d : 0
+    if (slowMs > 1500 && qLevel < QL.length - 1) { applyQ(qLevel + 1); slowMs = 0; coolMs = 1500; ema = 16.7 }
+  }
+  if (qParam === 'low') applyQ(QL.length - 2)
+  window.__quality = (set) => { if (set != null) applyQ(set); return { level: qLevel, ema: Math.round(ema), warm, cap: qCap } }
   function checkBlack() {
     const gl = R.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(4)
     R.setRenderTarget(null)
